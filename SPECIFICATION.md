@@ -1,56 +1,102 @@
-# Project: Agent Memory Palace Skill
+# Project: Locus
 
 ## Pretext
 
-Since starting with homelab-iac and newer projects, agent-control-plane, and homelab-as-production. 
-I have had claude use a memory technique to keep information handy but context windows small.
+Since starting with homelab-iac and newer projects (agent-control-plane, homelab-as-production),
+Claude has used a markdown-based memory technique to keep information handy while keeping context
+windows small. Locus formalizes and generalizes that pattern into a reusable system for any agent.
 
 ## Intent
 
-I want to expand on this idea and build a Memory Palace skill. Luckily there is no limit to how deep the memory
-can go using markdown files and directories. The idea is to keep a context window as small as possible while 
-referencing the precise information that can be used.
+Build a hierarchical markdown-based memory system for autonomous AI agents. Named for the atomic
+unit of the Method of Loci: each directory is a "room" (locus) containing specific knowledge,
+navigated on demand. The goal is to keep context windows as small as possible while enabling
+precise, deep recall across sessions and projects.
+
+## Name
+
+**Locus** — singular of loci. The foundational unit of the memory palace.
+GitHub: https://github.com/EDKarlsson/locus
 
 ## Guidelines
 
-1. Should use markdown files and directories.
-2. This should be usable by any kind of agent.
-    - Meaning, the information and prompts in the skill can be understood generally by AI
-3. Flexible and expandable.
-4. Reference current commands and skills located in
-    - ~/.claude/{skills, commands}
-    - /home/dank/.claude/projects/-home-dank-git-valhalla-homelab-iac/memory
-    - ~/.codex/skills
-    - ~/git/valhalla/homelab-iac
-      - `.codex`
-      - `.gemini`
-      - `.claude`
-    - ~/git/valhalla/agent-control-plane
-      - `.codex`
-      - `.gemini`
-      - `.claude`
-    
+1. Uses markdown files and directories exclusively — no databases, no external services required.
+2. Agent-agnostic: usable by Claude, Codex, Gemini, or any LLM-based agent without agent-specific tooling.
+3. Flexible and expandable — no limit to palace depth.
+4. Reference existing implementations in:
+   - `~/.claude/{skills,commands}`
+   - `/home/dank/.claude/projects/-home-dank-git-valhalla-homelab-iac/memory`
+   - `~/git/valhalla/homelab-iac` — `.codex`, `.gemini`, `.claude`
+   - `~/git/valhalla/agent-control-plane` — `.codex`, `.gemini`, `.claude`
+
+## Architecture Decisions
+
+### Structure
+- **Hierarchy**: directory = room, file = knowledge. Depth is unlimited.
+- **Index**: a root `INDEX.md` (~50 lines max) maps the palace — room names, one-line descriptions,
+  and paths — without loading any content. Agents always enter here first.
+- **Memory layers**: two tiers:
+  - **Global palace** — cross-project facts, toolchain preferences, recurring patterns, user conventions
+  - **Per-project rooms** — domain-specific knowledge scoped to a single project
+
+### Discovery & Reading
+- Agents enter via `INDEX.md` and navigate to specific rooms on demand.
+- v1: path-based navigation only (agent knows which room to enter based on the index).
+- v2: search capability (grep/FTS), likely the point where MCP becomes the right interface.
+
+### Writing
+- Agents write autonomously — no human approval step (this is agent infrastructure, not user-facing).
+- Convention: **append-only** for session logs, **explicit edits** for canonical fact files.
+- Git is the audit trail. No separate versioning layer needed.
+
+### Lifecycle
+- **No automatic memory expiry** in v1. Memories are retained indefinitely.
+- **Consolidation** is event-driven: triggered when a room exceeds a size threshold or after N
+  sessions touch the same room. Implemented as a Locus skill (similar to `knowledge-capture`).
+- Existing memory files (homelab-iac, agent-control-plane) are the reference implementation to
+  learn from — not a migration target. Locus produces a spec those files already mostly satisfy.
+
+### Performance Metrics (v1, optional)
+When enabled, Locus tracks:
+- **Context size** — lines and estimated tokens generated per retrieval
+- **Retrieval depth** — number of files read to satisfy a query (deep traversals signal structural issues)
+- **Disagreement signal** — explicit user command (e.g., `/locus feedback`) for v1; inferred from
+  conversational cues is a v2 consideration
+
+When disagreement or oversized context is detected, the agent suggests:
+- Raising the context size limit, OR
+- Splitting the room into smaller files
+...as options for the user to choose from.
+
+### Self-Evaluation (v2, experimental)
+A "palace audit" capability where the agent reflexively reviews its own rooms for:
+- Duplicate or contradictory facts
+- Rooms never accessed (candidates for archival)
+- Rooms exceeding size thresholds
+- Stale entries (timestamps older than a configurable threshold)
+
+Outputs a health report and proposes restructuring. Builds on the `knowledge-capture` skill pattern.
+
+### Portability
+- v1: fully self-contained — pure markdown, zero dependencies, no running process required.
+- v2: optional MCP server layer exposing tools (`memory_read`, `memory_write`, `memory_list`,
+  `memory_search`) for agents with MCP client support.
+
 ## Process
 
 1. Full project analysis
-2. Generate as many questions as possible to get more insight on goals and milestones.
-3. Develop a project plan in a new Github Repo
-    - The project plan should be exported to one of these 3, based on your best judgement.
-        - Github
-        - Gitlab
-        - YouTrack
-4. Break down work into multiple phases and tasks
-    - These should map the project plan interface
-5. Code should be reviewed by muliple agents on github an locally. Needs to cover:
-    - Unit Tests
-    - Code coverage
-    - Architecture analysis
-    - Cyber Security analysis and testnig
-    - Possibly some kind of integration testing.
-6. Leverage the local Gemini, Codex, and Claude applications.
+2. Requirements clarification (questions session — complete)
+3. Develop project plan on GitHub (issues + milestones)
+4. Break work into phases mapped to GitHub issues
+5. Multi-agent code review covering:
+   - Unit tests + code coverage
+   - Architecture analysis
+   - Security analysis and testing
+   - Integration testing
+6. Leverage Claude, Codex, and Gemini in parallel
 
-## Extras
+## References
 
 - [How to build a memory palace](https://artofmemory.com/blog/how-to-build-a-memory-palace/)
 - [Method of Loci](https://en.wikipedia.org/wiki/Method_of_loci)
-- [How to build a memory palact to store and revisit information](https://psyche.co/guides/how-to-build-a-memory-palace-to-store-and-revisit-information)
+- [How to build a memory palace to store and revisit information](https://psyche.co/guides/how-to-build-a-memory-palace-to-store-and-revisit-information)
