@@ -77,10 +77,20 @@ A "palace audit" capability where the agent reflexively reviews its own rooms fo
 
 Outputs a health report and proposes restructuring. Builds on the `knowledge-capture` skill pattern.
 
+### Runtime
+Two complementary interfaces:
+
+**SKILL.md files** (primary) — compatible with Claude Code CLI and the Claude Agent SDK.
+Loaded via `settingSources: ["user", "project"]` in SDK apps. Must not rely on
+`allowed-tools` SKILL.md frontmatter (only honoured by Claude Code CLI, not the SDK).
+
+**Agent SDK entrypoint** (`locus/agent/`, Python) — runs Locus autonomously against a
+palace directory. Serves as the benchmark harness and the foundation for the v0.5 MCP server.
+
 ### Portability
-- v1: fully self-contained — pure markdown, zero dependencies, no running process required.
-- v2: optional MCP server layer exposing tools (`memory_read`, `memory_write`, `memory_list`,
-  `memory_search`) for agents with MCP client support.
+- v0.2: SKILL.md files (zero dependencies) + Python Agent SDK entrypoint (`pyproject.toml`)
+- v0.5: optional MCP server layer exposing tools (`memory_read`, `memory_write`, `memory_list`,
+  `memory_search`) for agents with MCP client support; backed by the Agent SDK entrypoint.
 
 ## Process
 

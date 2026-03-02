@@ -38,24 +38,40 @@ The homelab-iac memory is the most mature reference (700+ line MEMORY.md, specia
 
 **Context window discipline:** MEMORY.md is always loaded (~200 line limit enforced by auto-memory system). Specialty files are read on demand. This is the core design constraint the skill must encode.
 
-## Skill Format
+## Runtime Architecture
 
-Skills live in `~/.claude/skills/<skill-name>/SKILL.md`. The existing 9 skills cover:
-- Mentorship workflows (`guided-walkthrough`, `guided-iac-walkthrough`)
-- Project management (`project-triage`, `review-analyzer`, `knowledge-capture`)
-- Infrastructure diagnostics (`homelab-vm-debug`, `homelab-health`, `k8s-mcp-reconnect`)
-- Integrations (`op-ssh-agent`, `wikijs-docs-sync`)
+Locus has two complementary interfaces:
 
-The Locus skill should follow this same directory/SKILL.md pattern.
+**1. SKILL.md files** — the primary interface. Skills live in `~/.claude/skills/<name>/SKILL.md`
+and are compatible with both Claude Code CLI and the Claude Agent SDK
+(`settingSources: ["user", "project"]`). The existing 9 skills are references:
+`guided-walkthrough`, `project-triage`, `knowledge-capture`, etc.
+
+**2. Agent SDK entrypoint** (`locus/agent/`) — a Python application using
+`claude_agent_sdk` that runs Locus autonomously against a palace directory.
+Used for benchmarking, integration testing, and as the foundation for the
+v0.5 MCP server.
+
+```python
+# SDK configuration pattern
+ClaudeAgentOptions(
+    cwd=palace_path,
+    setting_sources=["user", "project"],  # loads SKILL.md files
+    allowed_tools=["Skill", "Read", "Write", "Bash"],
+)
+```
+
+**Critical:** `allowed-tools` frontmatter in SKILL.md is only honoured by Claude Code CLI,
+not the Agent SDK. Never rely on it — control tool access via the host `allowedTools` config.
 
 ## Cross-Agent Compatibility
 
-Skills and commands are mirrored across agents:
-- Claude: `~/.claude/skills/` and `~/.claude/commands/`
+Skills mirror across agents:
+- Claude: `~/.claude/skills/` · Agent SDK: `settingSources: ["user", "project"]`
 - Codex: `.codex/commands/` in project repos
 - Gemini: `.gemini/` in project repos + GitHub Actions via `add-gemini-action`
 
-Any skill produced here must be expressible in plain markdown that any agent can follow without Claude-specific tooling.
+SKILL.md files must work without `allowed-tools` frontmatter to remain SDK-compatible.
 
 ## Development Process (from SPECIFICATION.md)
 

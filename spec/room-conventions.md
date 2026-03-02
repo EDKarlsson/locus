@@ -44,10 +44,10 @@ Rooms may be nested up to **3 levels deep**:
 
 ```
 projects/
-  homelab-iac/             ← level 1
-    networking/            ← level 2
-      tailscale/           ← level 3
-        tailscale.md
+  api-platform/            ← level 1
+    auth/                  ← level 2
+      oauth-flows/         ← level 3
+        oauth-flows.md
 ```
 
 Beyond 3 levels, flatten the structure or merge rooms.

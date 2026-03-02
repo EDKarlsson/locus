@@ -91,9 +91,9 @@ Cross-session memory for homelab infrastructure and agent workflows.
 
 | Room | Description | Path |
 |---|---|---|
-| `homelab-iac` | Proxmox nodes, K3s cluster, deployed services, Terraform state | `projects/homelab-iac/` |
-| `agent-control-plane` | Multi-agent hub architecture, phase status, open PRs | `projects/agent-control-plane/` |
-| `locus` | Locus spec decisions, milestone status, open issues | `projects/locus/` |
+| `api-platform` | Service mesh, auth layer, deployment topology, key config | `projects/api-platform/` |
+| `data-pipeline` | ETL jobs, schema versions, known failure modes | `projects/data-pipeline/` |
+| `mobile-app` | Release status, open bugs, architecture decisions | `projects/mobile-app/` |
 
 ---
 _Last consolidated: 2026-03-02_
