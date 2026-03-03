@@ -201,7 +201,7 @@ def _search_rg(query: str, search_root: Path, palace_root: Path) -> str:
             "--context", "1",
             "--max-count", "5",
             "--max-filesize", "500K",
-            query,
+            "--", query,
             str(search_root),
         ],
         capture_output=True,

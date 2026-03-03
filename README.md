@@ -100,7 +100,11 @@ locus --palace ~/.locus --task "What toolchain conventions are set?"
 
 ## MCP Server
 
-The `locus-mcp` command exposes four tools over the Model Context Protocol (stdio transport):
+The `locus-mcp` command exposes four tools over the Model Context Protocol.
+
+**Use stdio for all local integrations** (Claude Desktop, Claude Code, Codex, Gemini — default, no extra flags needed).
+SSE transport is available for network deployments (`--transport sse`) and requires `FASTMCP_HOST=0.0.0.0`
+to be set explicitly — the server binds to loopback by default.
 
 | Tool | Description |
 |---|---|
