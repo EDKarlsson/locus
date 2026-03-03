@@ -77,6 +77,6 @@ These are load-bearing — please don't work around them:
 | Room files ≤ 200 lines | Context budget per room |
 | Sessions write-only via MCP | Consolidation happens explicitly, not automatically |
 | Path traversal strictly rejected | Local filesystem access must be scoped to palace |
-| No HTTP transport in MCP server | stdio only; avoids accidental network exposure |
+| stdio is the default MCP transport | Use `locus-mcp` without `--transport` for all local integrations (Claude Desktop, Claude Code, Codex, Gemini). SSE transport (`--transport sse`) is opt-in for network deployments and requires `FASTMCP_HOST` to be set explicitly — the default bind address is `127.0.0.1`. |
 
 See `spec/` for the full convention definitions.
