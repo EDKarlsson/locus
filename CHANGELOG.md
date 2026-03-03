@@ -30,6 +30,11 @@
 - `server.json` — Official MCP Registry format (`io.github.EDKarlsson/locus`,
   PyPI package `locus-mcp` v0.6.0); also used by Glama.ai
 - For mcp.so: `npx mcp-index https://github.com/EDKarlsson/locus`
+- **PyPI**: `locus-mcp` v0.6.0 published at https://pypi.org/project/locus-mcp/
+
+**CI fix**
+- `fix(ci)`: `publish.yml` environment name corrected to `uv` to match the PyPI
+  OIDC trusted publisher config; tag re-pointed to the fixed commit before re-publish
 
 ---
 
