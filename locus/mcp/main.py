@@ -106,6 +106,22 @@ def cli() -> None:
 
     if args.transport == "sse":
         import uvicorn
+        from mcp.server.transport_security import TransportSecuritySettings
+
+        # Build allowed_hosts: always include loopback; extend with
+        # LOCUS_ALLOWED_HOSTS (comma-separated) for reverse-proxy deployments
+        # where the Host header will be an external hostname (e.g. Tailscale FQDN).
+        extra_hosts = [
+            h.strip()
+            for h in os.environ.get("LOCUS_ALLOWED_HOSTS", "").split(",")
+            if h.strip()
+        ]
+        allowed_hosts = ["127.0.0.1:*", "localhost:*", "[::1]:*"] + extra_hosts
+        server.settings.transport_security = TransportSecuritySettings(
+            enable_dns_rebinding_protection=True,
+            allowed_hosts=allowed_hosts,
+        )
+        log.info("allowed hosts: %s", allowed_hosts)
 
         app = server.sse_app()
 
