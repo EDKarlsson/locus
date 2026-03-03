@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import logging
 import os
 from pathlib import Path
+
+log = logging.getLogger("locus.mcp.palace")
 
 # Directories that MCP clients may not write to.
 _WRITE_BLOCKED_DIRS = {"_metrics", "sessions", "archived"}
@@ -25,6 +28,7 @@ def find_palace(palace_arg: str | None = None) -> Path:
         p = Path(palace_arg).expanduser().resolve()
         if not p.is_dir():
             raise ValueError(f"Palace path does not exist: {p}")
+        log.debug("palace resolved from --palace arg: %s", p)
         return p
 
     env = os.environ.get("LOCUS_PALACE")
@@ -32,14 +36,17 @@ def find_palace(palace_arg: str | None = None) -> Path:
         p = Path(env).expanduser().resolve()
         if not p.is_dir():
             raise ValueError(f"LOCUS_PALACE does not exist: {p}")
+        log.debug("palace resolved from LOCUS_PALACE env: %s", p)
         return p
 
     cwd_locus = Path.cwd() / ".locus"
     if cwd_locus.is_dir():
+        log.debug("palace resolved from .locus/ in cwd: %s", cwd_locus.resolve())
         return cwd_locus.resolve()
 
     home_locus = Path.home() / ".locus"
     if home_locus.is_dir():
+        log.debug("palace resolved from ~/.locus: %s", home_locus.resolve())
         return home_locus.resolve()
 
     raise ValueError(

@@ -19,9 +19,11 @@ PALACE = Path(__file__).parent.parent / "tests/fixtures/palace"
 
 
 async def run(palace: Path) -> None:
+    log_level = "DEBUG" if "--debug" in sys.argv else "WARNING"
+
     params = StdioServerParameters(
         command=sys.executable,
-        args=["-m", "locus.mcp.main", "--palace", str(palace)],
+        args=["-m", "locus.mcp.main", "--palace", str(palace), "--log-level", log_level],
     )
 
     async with stdio_client(params) as (read, write):

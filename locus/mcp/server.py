@@ -10,6 +10,7 @@ memory_search Full-text search across the palace or a sub-path.
 
 from __future__ import annotations
 
+import logging
 import re
 import subprocess
 import tempfile
@@ -18,6 +19,8 @@ from pathlib import Path
 from mcp.server.fastmcp import FastMCP
 
 from locus.mcp.palace import assert_writable, safe_resolve
+
+log = logging.getLogger("locus.mcp.server")
 
 # The palace root is injected at server startup via `create_server()`.
 _palace_root: Path | None = None
@@ -44,22 +47,28 @@ def memory_list(path: str = "") -> str:
     (e.g. ``"global/networking"``) to list the markdown files in that room.
     """
     root = _root()
+    log.debug("memory_list path=%r", path or "(index)")
 
     if not path or path.strip() == "":
         index = root / "INDEX.md"
         if index.is_file():
+            log.debug("returning INDEX.md (%d bytes)", index.stat().st_size)
             return index.read_text(encoding="utf-8")
+        log.warning("INDEX.md not found at palace root: %s", root)
         return f"No INDEX.md found at palace root: {root}"
 
     target = safe_resolve(root, path)
 
     if target.is_file():
+        log.debug("memory_list returning file contents: %s", target)
         return target.read_text(encoding="utf-8")
 
     if not target.is_dir():
+        log.info("memory_list: path not found: %s", path)
         return f"Path not found: {path}"
 
     entries = sorted(target.iterdir())
+    log.debug("memory_list listing %d entries in %s", len(entries), target)
     lines = [f"# {target.relative_to(root)}\n"]
     for entry in entries:
         rel = entry.relative_to(root)
@@ -80,13 +89,18 @@ def memory_read(path: str) -> str:
     Returns the full file contents as a string.
     """
     root = _root()
+    log.debug("memory_read path=%r", path)
     target = safe_resolve(root, path)
 
     if not target.exists():
+        log.info("memory_read: file not found: %s", path)
         return f"File not found: {path}"
     if target.is_dir():
+        log.info("memory_read: path is a directory: %s", path)
         return f"'{path}' is a directory — use memory_list to browse it."
 
+    size = target.stat().st_size
+    log.debug("memory_read returning %d bytes from %s", size, target)
     return target.read_text(encoding="utf-8")
 
 
@@ -105,8 +119,9 @@ def memory_write(path: str, content: str) -> str:
     Creates parent directories as needed.
     """
     root = _root()
+    log.debug("memory_write path=%r len=%d", path, len(content))
     target = safe_resolve(root, path)
-    assert_writable(root, target)
+    assert_writable(root, target)   # raises ValueError (logged by FastMCP) if blocked
 
     target.parent.mkdir(parents=True, exist_ok=True)
 
@@ -123,7 +138,8 @@ def memory_write(path: str, content: str) -> str:
             tmp.write(content)
             tmp_path = Path(tmp.name)
         tmp_path.replace(target)
-    except Exception:
+    except Exception as exc:
+        log.error("memory_write failed for %s: %s", path, exc)
         if tmp is not None:
             try:
                 Path(tmp.name).unlink(missing_ok=True)
@@ -132,6 +148,7 @@ def memory_write(path: str, content: str) -> str:
         raise
 
     lines = content.count("\n") + (1 if content and not content.endswith("\n") else 0)
+    log.info("memory_write: wrote %d lines to %s", lines, path)
     return f"Written {lines} lines to {path}"
 
 
@@ -150,15 +167,22 @@ def memory_search(query: str, path: str = "") -> str:
     ``path`` narrows the search to a specific room or subdirectory.
     """
     root = _root()
+    log.debug("memory_search query=%r path=%r", query, path or "(palace root)")
     search_root = safe_resolve(root, path) if path and path.strip() else root
 
     if not search_root.exists():
+        log.info("memory_search: search path not found: %s", path)
         return f"Search path not found: {path}"
 
     try:
-        return _search_rg(query, search_root, root)
+        result = _search_rg(query, search_root, root)
+        log.debug("memory_search: rg backend, %d result lines", result.count("\n"))
+        return result
     except FileNotFoundError:
-        return _search_python(query, search_root, root)
+        log.info("memory_search: rg not found, falling back to Python re")
+        result = _search_python(query, search_root, root)
+        log.debug("memory_search: python backend, %d result lines", result.count("\n"))
+        return result
 
 
 def _search_rg(query: str, search_root: Path, palace_root: Path) -> str:
@@ -269,4 +293,5 @@ def create_server(palace_root: Path) -> FastMCP:
     """Initialise the server with a palace root and return it."""
     global _palace_root
     _palace_root = palace_root
+    log.info("server initialised with palace: %s", palace_root)
     return mcp
