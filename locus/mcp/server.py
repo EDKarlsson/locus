@@ -53,7 +53,7 @@ def memory_list(path: str = "") -> str:
         index = root / "INDEX.md"
         if index.is_file():
             log.debug("returning INDEX.md (%d bytes)", index.stat().st_size)
-            return index.read_text(encoding="utf-8")
+            return _read_bounded(index, "INDEX.md")
         log.warning("INDEX.md not found at palace root: %s", root)
         return f"No INDEX.md found at palace root: {root}"
 
@@ -61,7 +61,7 @@ def memory_list(path: str = "") -> str:
 
     if target.is_file():
         log.debug("memory_list returning file contents: %s", target)
-        return target.read_text(encoding="utf-8")
+        return _read_bounded(target, path)
 
     if not target.is_dir():
         log.info("memory_list: path not found: %s", path)
@@ -99,9 +99,7 @@ def memory_read(path: str) -> str:
         log.info("memory_read: path is a directory: %s", path)
         return f"'{path}' is a directory — use memory_list to browse it."
 
-    size = target.stat().st_size
-    log.debug("memory_read returning %d bytes from %s", size, target)
-    return target.read_text(encoding="utf-8")
+    return _read_bounded(target, path)
 
 
 # ---------------------------------------------------------------------------
@@ -122,6 +120,12 @@ def memory_write(path: str, content: str) -> str:
     log.debug("memory_write path=%r len=%d", path, len(content))
     target = safe_resolve(root, path)
     assert_writable(root, target)   # raises ValueError (logged by FastMCP) if blocked
+
+    byte_len = len(content.encode("utf-8"))
+    if byte_len > _MAX_WRITE_BYTES:
+        raise ValueError(
+            f"Content too large ({byte_len:,} bytes, limit {_MAX_WRITE_BYTES:,} bytes)"
+        )
 
     target.parent.mkdir(parents=True, exist_ok=True)
 
@@ -245,7 +249,18 @@ def _search_rg(query: str, search_root: Path, palace_root: Path) -> str:
     return "\n".join(lines) if lines else f"No matches for '{query}'"
 
 
+_MAX_READ_BYTES = 500_000   # 500 KB — palace files should be tiny
+_MAX_WRITE_BYTES = 500_000  # 500 KB — guards against runaway writes
 _MAX_QUERY_LEN = 200
+
+
+def _read_bounded(path: Path, rel: str) -> str:
+    """Read ``path`` and return its text, or an error if it exceeds _MAX_READ_BYTES."""
+    size = path.stat().st_size
+    if size > _MAX_READ_BYTES:
+        log.warning("file too large (%d bytes): %s", size, rel)
+        return f"File too large to read ({size:,} bytes, limit {_MAX_READ_BYTES:,} bytes): {rel}"
+    return path.read_text(encoding="utf-8")
 
 
 def _search_python(query: str, search_root: Path, palace_root: Path) -> str:

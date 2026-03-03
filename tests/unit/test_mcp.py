@@ -181,6 +181,12 @@ class TestMemoryRead:
         with pytest.raises(ValueError, match="escapes"):
             mcp_server.memory_read("../../etc/passwd")
 
+    def test_read_oversized_file_returns_error(self, palace: Path) -> None:
+        big = palace / "global" / "networking" / "big.md"
+        big.write_bytes(b"x" * (mcp_server._MAX_READ_BYTES + 1))
+        result = mcp_server.memory_read("global/networking/big.md")
+        assert "too large" in result.lower()
+
 
 # ---------------------------------------------------------------------------
 # memory_write
@@ -224,6 +230,11 @@ class TestMemoryWrite:
             mcp_server.memory_write(
                 "global/networking/sessions/2026-03-02.md", "## Session\n"
             )
+
+    def test_write_oversized_content_blocked(self) -> None:
+        oversized = "x" * (mcp_server._MAX_WRITE_BYTES + 1)
+        with pytest.raises(ValueError, match="too large"):
+            mcp_server.memory_write("global/big.md", oversized)
 
 
 # ---------------------------------------------------------------------------
