@@ -1,5 +1,44 @@
 # Changelog
 
+## Unreleased — 2026-03-02
+
+### MCP Integration Benchmarks + Architecture Docs
+
+Adds two live MCP benchmark scripts, a palace-vs-flat recall comparison harness,
+architecture diagrams, and benchmark charts for the repo.
+
+**New scripts (`scripts/`)**
+
+- `bench-mcp.py` — 40-case integration benchmark covering all 4 MCP tools across
+  navigation, safety, search, write, fidelity, and edge categories. Runs against
+  a live `locus-mcp` subprocess. Key fix: FastMCP surfaces `ValueError` as
+  `isError=True` tool results (not Python exceptions) — use `resp.isError`, not
+  `try/except`, to detect guard rejections.
+- `bench-compare.py` — 9-scenario recall benchmark comparing palace vs flat-palace.
+  Measures lines loaded into context and answer recall per query. Results: palace
+  loads 52% fewer lines on average; flat misses session-only queries entirely.
+- `generate-charts.py` — Regenerates `docs/img/` SVG charts from benchmark data.
+  Requires `matplotlib` (added to `[dev]` optional dependency group).
+
+**New fixture (`tests/fixtures/flat-palace/`)**
+
+Flat baseline palace: `INDEX.md` + `MEMORY.md` (184 lines, all content in one file).
+Used as the comparison target for `bench-compare.py`.
+
+**New docs (`docs/`)**
+
+- `architecture.md` — Four Mermaid diagrams: palace structure with line counts,
+  MCP server internals (main/server/palace modules), agent interfaces
+  (Claude/SDK/Codex/Gemini), memory lifecycle (query → consolidate loop).
+- `benchmarks.md` — Benchmark methodology, results summary, and embedded charts.
+- `img/lines-comparison.svg` — Grouped bar chart: palace vs flat lines loaded per scenario.
+- `img/latency-by-category.svg` — Horizontal bar chart: MCP avg latency by tool category.
+
+**README** updated: Benchmarking section now references the two new scripts and
+their summary results; Structure section reflects new scripts and docs layout.
+
+---
+
 ## v0.5.0 — 2026-03-02
 
 ### MCP Server
