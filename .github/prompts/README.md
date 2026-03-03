@@ -34,6 +34,6 @@ Replace `<provider-action>` with your configured Claude/Codex/Copilot/Gemini Act
 
 ## Included Workflows
 
-- Claude runnable workflow: `.github/workflows/claude-security-audit.yml`
+- Claude manual-only workflow (disabled for automatic PR runs): `.github/workflows/claude-security-audit.yml`
 - Copilot coding-agent setup workflow: `.github/workflows/copilot-setup-steps.yml`
 - Auto-comment workflow: `.github/workflows/post-ai-security-pr-comment.yml`

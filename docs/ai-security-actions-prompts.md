@@ -11,7 +11,7 @@ These prompts are intended to run security tests, auditing, and reporting in PR 
 
 ## Added Workflow Files
 
-- Claude audit workflow: `.github/workflows/claude-security-audit.yml`
+- Claude audit workflow (manual-only): `.github/workflows/claude-security-audit.yml`
 - Copilot setup workflow: `.github/workflows/copilot-setup-steps.yml`
 - PR auto-comment workflow: `.github/workflows/post-ai-security-pr-comment.yml`
 
@@ -45,7 +45,8 @@ Replace `<provider-action>` with your configured runner for Claude, Codex, Copil
 
 ## Claude Example
 
-This repo now includes a runnable Claude workflow:
+This repo now includes a Claude workflow configured as manual-only
+(`workflow_dispatch`) so it is disabled for automatic PR runs:
 
 ```yaml
 .github/workflows/claude-security-audit.yml
@@ -53,6 +54,8 @@ This repo now includes a runnable Claude workflow:
 
 It reads `.github/prompts/claude-security-audit.md`, runs Claude via the
 Anthropic GitHub Action, and uploads audit artifacts from `docs/audits/`.
+To enable automatic PR runs later, add a `pull_request` trigger back to the
+workflow once `ANTHROPIC_API_KEY` is configured.
 
 ## Automatic PR Comment Posting
 
