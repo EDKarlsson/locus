@@ -48,17 +48,33 @@ If any file is stale, update it and commit with the version bump PR (not separat
 ### 4. Re-run MCP integration benchmark
 
 ```bash
-# Requires: locus-mcp running on stdio (uses subprocess internally)
-uv run python scripts/bench-mcp.py 2>&1 | tail -5
+# Write structured JSON results — avoids relying on text output format
+uv run python scripts/bench-mcp.py --json-out /tmp/bench-mcp-results.json
+```
+
+Then verify from the JSON:
+```python
+import json
+r = json.load(open("/tmp/bench-mcp-results.json"))
+assert r["summary"]["passed"] == 40, f"Expected 40, got {r['summary']['passed']}"
+assert r["summary"]["p95_ms"] < 50, f"p95 latency regression: {r['summary']['p95_ms']}ms"
 ```
 
 - All 40 cases must pass. If any fail, investigate before releasing.
-- Record avg latency and p95. Flag if p95 > 50ms (latency regression).
+- Flag if p95 > 50ms (latency regression; current baseline is ~16ms).
 
 ### 5. Re-run palace vs flat benchmark
 
 ```bash
-uv run python scripts/bench-compare.py 2>&1 | tail -10
+uv run python scripts/bench-compare.py --json-out /tmp/bench-compare-results.json
+```
+
+Then verify from the JSON:
+```python
+import json
+r = json.load(open("/tmp/bench-compare-results.json"))
+palace_pass = r["palace"]["pass_rate"]
+assert palace_pass >= 0.87, f"Palace pass rate regression: {palace_pass:.0%}"
 ```
 
 - Palace pass rate must be ≥ 87% (baseline from v0.6.0).
