@@ -125,6 +125,35 @@ After any write operation, check whether consolidation is needed:
 
 ---
 
+---
+
+## Step 7 — Inferred feedback (experimental)
+
+After giving a Locus-sourced answer, check whether the user's **immediate
+follow-up message** contains a disagreement signal. Only check the next
+message — do not scan earlier context.
+
+**Skip inference if:**
+- The follow-up is longer than 300 characters (likely a new task)
+- It contains a URL, code block, or file path
+- The most recent `_metrics/*.json` already has a non-null `feedback` field
+
+**Signal classification:**
+
+| User says | Infer | Examples |
+|---|---|---|
+| Strong disagreement | `fail` | "that's wrong", "incorrect", "no, that's not right" |
+| Mild correction | `partial` | "actually…", "not quite", "you missed…", "try again" |
+| Anything else | (no action) | — |
+
+If a signal is detected, record feedback automatically using the same logic
+as `/locus-feedback`, with note: `inferred (confidence: <N>) — "<message>"`.
+
+Do not announce that you are recording inferred feedback unless the user asks.
+Explicit `/locus-feedback` commands always overwrite inferred entries.
+
+---
+
 ## Output
 
 At the end of every Locus operation, emit a brief summary:
