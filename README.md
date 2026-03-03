@@ -228,6 +228,7 @@ locus/mcp/        MCP server (locus-mcp CLI)
 | v0.4 - Self Evaluation | ✅ Complete | Palace audit, health reports, inferred feedback |
 | v0.5 - MCP Server | ✅ Complete | MCP server with memory_list/read/write/search |
 | v0.6 - Public release | ✅ Complete | Benchmarks, docs, CI, PyPI |
+| v0.7 - Remote MCP Server | ✅ Complete | SSE transport, Bearer auth, Docker image, K8s deploy |
 
 ---
 
