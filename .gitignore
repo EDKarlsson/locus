@@ -11,5 +11,13 @@ dist/
 # Palace system directories (not knowledge — exclude from commits by default)
 _metrics/
 
+# Generated security scanner outputs (uploaded as CI artifacts, not versioned)
+docs/audits/artifacts/
+
 # Local MCP config (personal palace path — not committed)
 .mcp.json
+
+# Editor / IDE
+.obsidian/
+.idea/
+*.code-workspace

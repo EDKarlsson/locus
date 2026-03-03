@@ -1,11 +1,11 @@
 # Reference Analysis
 
-Patterns extracted from the homelab-iac memory system — the most mature
-existing implementation. These inform Locus conventions.
+Patterns extracted from a mature infrastructure memory system — one of the earliest
+implementations. These inform Locus conventions.
 
-## homelab-iac Memory System
+## Infrastructure Project Memory System
 
-**Location:** `~/.claude/projects/-home-dank-git-valhalla-homelab-iac/memory/`
+**Location:** `~/.claude/projects/<project-hash>/memory/`
 
 ### File Inventory
 
@@ -42,9 +42,9 @@ existing implementation. These inform Locus conventions.
 - No explicit size threshold enforcement — `MEMORY.md` grew to 700+ lines before truncation became a problem.
 - No consolidation mechanism — stale entries accumulate.
 
-## agent-control-plane Memory System
+## Multi-Agent Orchestration Memory System
 
-**Location:** `~/.claude/projects/-home-dank-git-valhalla-agent-control-plane/memory/`
+**Location:** `~/.claude/projects/<project-hash>/memory/`
 
 Focuses on multi-agent orchestration state. Key observation: tracks phase completion
 (Phases 1–8 done, Phase 9 in progress) and maps open GitHub issues to phases.

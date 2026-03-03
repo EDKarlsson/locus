@@ -2,9 +2,9 @@
 
 ## Pretext
 
-Since starting with homelab-iac and newer projects (agent-control-plane, homelab-as-production),
-Claude has used a markdown-based memory technique to keep information handy while keeping context
-windows small. Locus formalizes and generalizes that pattern into a reusable system for any agent.
+Using markdown-based memory across multiple AI-assisted projects, a recurring pattern emerged:
+agents navigate structured directories of markdown files to keep information handy while keeping
+context windows small. Locus formalizes and generalizes that pattern into a reusable system for any agent.
 
 ## Intent
 
@@ -25,9 +25,8 @@ GitHub: https://github.com/EDKarlsson/locus
 3. Flexible and expandable — no limit to palace depth.
 4. Reference existing implementations in:
    - `~/.claude/{skills,commands}`
-   - `/home/dank/.claude/projects/-home-dank-git-valhalla-homelab-iac/memory`
-   - `~/git/valhalla/homelab-iac` — `.codex`, `.gemini`, `.claude`
-   - `~/git/valhalla/agent-control-plane` — `.codex`, `.gemini`, `.claude`
+   - `~/.claude/projects/<project>/memory`
+   - Any project with `.codex`, `.gemini`, `.claude` config directories
 
 ## Architecture Decisions
 
@@ -53,7 +52,7 @@ GitHub: https://github.com/EDKarlsson/locus
 - **No automatic memory expiry** in v1. Memories are retained indefinitely.
 - **Consolidation** is event-driven: triggered when a room exceeds a size threshold or after N
   sessions touch the same room. Implemented as a Locus skill (similar to `knowledge-capture`).
-- Existing memory files (homelab-iac, agent-control-plane) are the reference implementation to
+- Existing memory files in mature projects are the reference implementation to
   learn from — not a migration target. Locus produces a spec those files already mostly satisfy.
 
 ### Performance Metrics (v1, optional)

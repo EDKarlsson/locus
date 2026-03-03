@@ -1,0 +1,43 @@
+name: Copilot Setup Steps
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/copilot-setup-steps.yml"
+      - ".github/prompts/copilot-security-audit.md"
+      - "pyproject.toml"
+      - "uv.lock"
+  pull_request:
+    paths:
+      - ".github/workflows/copilot-setup-steps.yml"
+      - ".github/prompts/copilot-security-audit.md"
+      - "pyproject.toml"
+      - "uv.lock"
+
+permissions:
+  contents: read
+
+jobs:
+  copilot-setup-steps:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v4
+        with:
+          version: "latest"
+
+      - name: Install project dependencies
+        run: uv sync --extra dev
+
+      - name: Pre-install security tooling used by Copilot prompt
+        run: |
+          uv run --with bandit bandit --version
+          uv run --with pip-audit pip-audit --version
+
+      - name: Verify prompt file is non-empty
+        run: |
+          test -s .github/prompts/copilot-security-audit.md || { echo "Prompt file is empty"; exit 1; }

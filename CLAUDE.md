@@ -14,12 +14,12 @@ Before writing anything new, read these reference implementations:
 
 | Location | What it shows |
 |---|---|
-| `/home/dank/.claude/projects/-home-dank-git-valhalla-homelab-iac/memory/` | 8-file memory system: MEMORY.md + specialty files |
-| `/home/dank/.claude/projects/-home-dank-git-valhalla-agent-control-plane/memory/` | Multi-agent orchestration memory |
+| `~/.claude/projects/<project>/memory/` | 8-file memory system: MEMORY.md + specialty files |
+| `~/.claude/projects/<project>/memory/` | Multi-agent orchestration memory |
 | `~/.claude/skills/*/SKILL.md` | Skill definition format (9 skills to study) |
 | `~/.claude/commands/` | Command format for reusable workflows |
 
-The homelab-iac memory is the most mature reference (700+ line MEMORY.md, specialty files for gotchas, deployments, platform services).
+A mature memory directory typically has a ~200-line MEMORY.md plus specialty files for gotchas, deployments, and platform services.
 
 ## Memory File Conventions (from existing projects)
 
@@ -85,8 +85,7 @@ SKILL.md files must work without `allowed-tools` frontmatter to remain SDK-compa
    - Integration testing
 5. **Local agent leverage** — use Gemini, Codex, and Claude in parallel
 
-## Related Projects
+## Related Resources
 
-- `~/git/valhalla/homelab-iac` — primary reference for memory patterns; has `.codex/`, `.gemini/`, `.claude/` configs
-- `~/git/valhalla/agent-control-plane` — multi-agent orchestration hub (agent_hub.py, plugin_manager.py); Phase 9 (GitHub plugin system) is in progress
-- `~/.claude/projects/-home-dank-git-valhalla-homelab-iac/memory/` — study `technical-gotchas.md` and `worktree-workflow.md` for file format patterns
+- `~/.claude/projects/<project>/memory/` — study any mature memory directory for `technical-gotchas.md` and `worktree-workflow.md` file format patterns
+- The `example-palace/` directory in this repo is the canonical reference for palace structure

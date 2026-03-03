@@ -1,12 +1,32 @@
 [project]
-name = "locus-agent"
-version = "0.2.0"
-description = "Hierarchical markdown memory system for autonomous AI agents"
+name = "locus-mcp"
+version = "0.6.0"
+description = "Hierarchical markdown memory palace for AI agents — MCP server, skills, and audit tools"
+readme = "README.md"
+license = {text = "MIT"}
 requires-python = ">=3.11"
+keywords = ["mcp", "memory", "agents", "llm", "claude", "palace", "context-window"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
 dependencies = [
     "claude-agent-sdk>=0.0.14",
     "anyio>=4.0",
+    "mcp>=1.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/EDKarlsson/locus"
+Documentation = "https://github.com/EDKarlsson/locus/wiki"
+Repository = "https://github.com/EDKarlsson/locus"
+"Bug Tracker" = "https://github.com/EDKarlsson/locus/issues"
+Changelog = "https://github.com/EDKarlsson/locus/blob/main/CHANGELOG.md"
 
 [project.scripts]
 locus = "locus.agent.main:cli"
@@ -21,7 +41,7 @@ build-backend = "hatchling.build"
 packages = ["locus"]
 
 [project.optional-dependencies]
-dev = ["pytest>=8.0", "pytest-asyncio>=0.23"]
+dev = ["pytest>=8.0", "pytest-asyncio>=0.23", "matplotlib>=3.8"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests/unit"]

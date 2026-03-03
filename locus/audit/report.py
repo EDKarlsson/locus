@@ -35,16 +35,6 @@ def _signal_icon(key: str, value: float | int | None) -> str:
     return "✅"
 
 
-def _fmt(value: float | int | None) -> str:
-    if value is None:
-        return "—"
-    if isinstance(value, float):
-        if 0 <= value <= 1 and "rate" in "":
-            return f"{value:.0%}"
-        return f"{value:.1f}"
-    return str(value)
-
-
 def render_room(room: RoomResult) -> str:
     icon = _STATUS_ICON.get(room.status, "?")
     s = room.signals
@@ -148,7 +138,9 @@ def write_reports(result: AuditResult, palace_root: Path) -> tuple[Path, Path]:
     metrics_dir = palace_root / "_metrics"
     metrics_dir.mkdir(exist_ok=True)
 
-    ts = result.audited_at.replace(":", "").replace("-", "").replace("T", "T")[:16] + "Z"
+    # Produce audit-YYYY-MM-DDTHHMMSSZ per spec/health-report-format.md
+    # Keep date dashes, remove time colons only.
+    ts = result.audited_at[:19].replace(":", "") + "Z"
     stem = f"audit-{ts}"
 
     md_path = metrics_dir / f"{stem}.md"
