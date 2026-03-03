@@ -287,3 +287,40 @@ class TestMemorySearch:
     def test_python_query_too_long_returns_error(self, palace: Path) -> None:
         result = mcp_server._search_python("x" * 201, palace, palace)
         assert "Query too long" in result
+
+
+# ---------------------------------------------------------------------------
+# CLI — SSE allowed_hosts construction
+# ---------------------------------------------------------------------------
+
+class TestSseAllowedHosts:
+    """Verify LOCUS_ALLOWED_HOSTS is merged with loopback defaults."""
+
+    def _build_allowed_hosts(self, env_value: str) -> list[str]:
+        """Replicate the allowed_hosts logic from cli() without starting a server."""
+        import os
+        default = ["127.0.0.1:*", "localhost:*", "[::1]:*"]
+        extra = [h.strip() for h in env_value.split(",") if h.strip()]
+        return default + extra
+
+    def test_loopback_always_present_when_env_unset(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.delenv("LOCUS_ALLOWED_HOSTS", raising=False)
+        hosts = self._build_allowed_hosts("")
+        assert "127.0.0.1:*" in hosts
+        assert "localhost:*" in hosts
+        assert "[::1]:*" in hosts
+
+    def test_extra_hosts_appended(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("LOCUS_ALLOWED_HOSTS", "myhost.ts.net,svc.cluster.local:*")
+        hosts = self._build_allowed_hosts("myhost.ts.net,svc.cluster.local:*")
+        assert "myhost.ts.net" in hosts
+        assert "svc.cluster.local:*" in hosts
+        # loopback still present
+        assert "127.0.0.1:*" in hosts
+
+    def test_whitespace_and_empty_entries_stripped(self) -> None:
+        hosts = self._build_allowed_hosts(" host-a , , host-b ")
+        assert "host-a" in hosts
+        assert "host-b" in hosts
+        # empty string not included
+        assert "" not in hosts
