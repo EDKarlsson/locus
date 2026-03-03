@@ -1,0 +1,52 @@
+name: Claude Security Audit
+
+on:
+  workflow_dispatch:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  claude-security-audit:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.draft == false
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate Claude API key
+        run: |
+          if [ -z "${{ secrets.ANTHROPIC_API_KEY }}" ]; then
+            echo "Missing required secret: ANTHROPIC_API_KEY"
+            exit 1
+          fi
+
+      - name: Load Claude security prompt
+        id: prompt
+        run: |
+          {
+            echo "prompt<<EOF"
+            cat .github/prompts/claude-security-audit.md
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Run Claude security audit
+        uses: anthropics/claude-code-action@v1
+        with:
+          prompt: ${{ steps.prompt.outputs.prompt }}
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          additional_permissions: "actions:read"
+
+      - name: Upload Claude audit artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: claude-security-audit
+          path: |
+            docs/audits/**/*.md
+            docs/audits/artifacts/*
+          if-no-files-found: ignore
