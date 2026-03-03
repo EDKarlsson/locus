@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.8.0 — 2026-03-03
 
 ### Auto-memory bridge + `memory_batch` tool
 
@@ -26,7 +26,7 @@ workflow for persistent project-specific context.
 
 - `feat(mcp/palace)`: `_slug_from_path`, `find_auto_memory`, updated `find_palace` priority
 - `feat(mcp/server)`: `memory_batch` tool, `_MAX_BATCH_PATHS = 20`
-- +13 unit tests (`TestFindAutoMemory`, `TestMemoryBatch`) — 199 tests total
+- +15 unit tests (`TestFindAutoMemory`, `TestMemoryBatch`) — 201 tests total
 
 ---
 
