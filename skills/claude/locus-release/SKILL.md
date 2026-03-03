@@ -1,9 +1,16 @@
 ---
 name: locus-release
 description: Post-release verification for locus-mcp. Run after tagging and pushing a new version to ensure all documents, tests, and charts are consistent with the release.
+scope: dev
+audience: contributors
 ---
 
 # locus-release
+
+> **Project development only.** This skill operates on the `locus` source repository
+> (`/home/dank/git/valhalla/locus`). It is not part of the palace interface and should
+> not be invoked from within the MCP server or against a user's palace directory.
+> End users of `locus-mcp` do not need this skill.
 
 Post-release verification skill for the `locus` project. Run this after every version
 tag to catch stale version strings, prevent test regressions, and keep benchmark charts
