@@ -64,13 +64,16 @@ class TestFindPalace:
         with pytest.raises(ValueError, match="does not exist"):
             find_palace(str(tmp_path / "nonexistent"))
 
-    def test_no_palace_raises(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_no_palace_bootstraps_home_locus(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.chdir(tmp_path)
         monkeypatch.delenv("LOCUS_PALACE", raising=False)
-        # Only raises if ~/.locus also doesn't exist; mock home to tmp.
+        # Mock home so ~/.locus doesn't exist yet.
         monkeypatch.setenv("HOME", str(tmp_path))
-        with pytest.raises(ValueError, match="No palace found"):
-            find_palace()
+        result = find_palace()
+        assert result == (tmp_path / ".locus").resolve()
+        assert (tmp_path / ".locus" / "INDEX.md").exists()
+        assert (tmp_path / ".locus" / "global").is_dir()
+        assert (tmp_path / ".locus" / "projects").is_dir()
 
 
 # ---------------------------------------------------------------------------

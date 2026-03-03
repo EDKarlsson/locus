@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.6.2 — 2026-03-03
+
+### Auto-bootstrap palace on first start
+
+`find_palace()` now creates `~/.locus/` with `INDEX.md`, `global/`, and `projects/`
+subdirectories when the default palace doesn't exist — instead of raising an error.
+Explicit `--palace` and `LOCUS_PALACE` paths still raise if missing (those are
+configuration errors, not first-run). Updated test: `test_no_palace_raises` →
+`test_no_palace_bootstraps_home_locus`.
+
+---
+
 ## v0.6.1 — 2026-03-02
 
 ### MCP Registry ownership tag

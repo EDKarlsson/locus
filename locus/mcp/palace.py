@@ -47,12 +47,58 @@ def find_palace(palace_arg: str | None = None) -> Path:
     home_locus = Path.home() / ".locus"
     if home_locus.is_dir():
         log.debug("palace resolved from ~/.locus: %s", home_locus.resolve())
-        return home_locus.resolve()
+    else:
+        _bootstrap_palace(home_locus)
+        log.info("palace bootstrapped at %s", home_locus)
+    _ensure_index(home_locus)
+    return home_locus.resolve()
 
-    raise ValueError(
-        "No palace found. Pass --palace, set LOCUS_PALACE, or create .locus/ "
-        "in the current directory."
-    )
+
+_INDEX_TEMPLATE = """\
+# Memory Palace
+
+Personal memory palace — cross-project facts, tooling notes, and session knowledge.
+
+## Global Rooms
+
+| Room | Description | Path |
+|---|---|---|
+
+## Project Rooms
+
+| Room | Description | Path |
+|---|---|---|
+
+---
+_Last consolidated: {date}_
+
+<!--
+NAVIGATION: Read this file first. Identify the relevant room(s), then read
+only those. Do not load the full palace. If no room matches your query,
+check whether a new room is warranted before writing to an existing one.
+
+SIZE LIMIT: Keep this file under 50 lines.
+-->
+"""
+
+
+def _bootstrap_palace(palace: Path) -> None:
+    """Create a minimal palace directory structure."""
+    for subdir in ("global", "projects"):
+        (palace / subdir).mkdir(parents=True, exist_ok=True)
+    log.info("created palace directories at %s", palace)
+
+
+def _ensure_index(palace: Path) -> None:
+    """Write INDEX.md if it doesn't exist yet."""
+    index = palace / "INDEX.md"
+    if not index.exists():
+        from datetime import date
+        index.write_text(
+            _INDEX_TEMPLATE.format(date=date.today().isoformat()),
+            encoding="utf-8",
+        )
+        log.info("created %s", index)
 
 
 def safe_resolve(palace_root: Path, rel_path: str) -> Path:
