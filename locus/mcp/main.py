@@ -17,6 +17,7 @@ from __future__ import annotations
 import argparse
 import logging
 import os
+import secrets
 import sys
 
 from locus.mcp.palace import find_palace
@@ -40,7 +41,7 @@ class BearerAuthMiddleware:
         if scope["type"] in ("http", "websocket"):
             headers = dict(scope.get("headers", []))
             auth = headers.get(b"authorization", b"").decode()
-            if auth != f"Bearer {self._key}":
+            if not secrets.compare_digest(auth, f"Bearer {self._key}"):
                 await self._reject(scope, send)
                 return
         await self._app(scope, receive, send)
@@ -113,7 +114,7 @@ def cli() -> None:
         else:
             log.warning("LOCUS_API_KEY not set — SSE endpoint is unauthenticated")
 
-        host = os.environ.get("FASTMCP_HOST", "0.0.0.0")
+        host = os.environ.get("FASTMCP_HOST", "127.0.0.1")
         port = int(os.environ.get("FASTMCP_PORT", "8000"))
         log.info("starting SSE server on %s:%d", host, port)
         uvicorn.run(app, host=host, port=port)
