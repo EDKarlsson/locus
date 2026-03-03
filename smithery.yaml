@@ -1,0 +1,22 @@
+# Smithery.ai server configuration
+# https://smithery.ai/docs/build/project-config/smithery-yaml
+
+startCommand:
+  type: stdio
+  configSchema:
+    type: object
+    properties:
+      palace:
+        type: string
+        title: Palace Path
+        description: >-
+          Absolute path to the memory palace root directory.
+          If omitted the server falls back to the LOCUS_PALACE
+          environment variable, then ~/.locus/.
+  commandFunction: |-
+    (config) => ({
+      command: 'uvx',
+      args: ['locus-mcp', ...(config.palace ? ['--palace', config.palace] : [])]
+    })
+  exampleConfig:
+    palace: "~/.locus"
