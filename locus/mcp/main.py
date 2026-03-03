@@ -8,7 +8,7 @@ If ``--palace`` is omitted the server resolves the palace root via
 ``LOCUS_PALACE`` env var, ``.locus/`` in CWD, or ``~/.locus/``.
 
 For SSE transport, set ``FASTMCP_HOST`` / ``FASTMCP_PORT`` env vars to
-control the bind address (defaults: 0.0.0.0:8000).  If ``LOCUS_API_KEY``
+control the bind address (defaults: 127.0.0.1:8000).  If ``LOCUS_API_KEY``
 is set, every request must carry ``Authorization: Bearer <key>``.
 """
 
@@ -38,23 +38,25 @@ class BearerAuthMiddleware:
         self._key = api_key
 
     async def __call__(self, scope, receive, send) -> None:
-        if scope["type"] in ("http", "websocket"):
+        if scope["type"] == "http":
             headers = dict(scope.get("headers", []))
             auth = headers.get(b"authorization", b"").decode()
             if not secrets.compare_digest(auth, f"Bearer {self._key}"):
-                await self._reject(scope, send)
+                await self._reject(send)
                 return
         await self._app(scope, receive, send)
 
     @staticmethod
-    async def _reject(scope, send) -> None:
-        if scope["type"] == "http":
-            await send({
-                "type": "http.response.start",
-                "status": 401,
-                "headers": [[b"content-type", b"text/plain"]],
-            })
-            await send({"type": "http.response.body", "body": b"Unauthorized"})
+    async def _reject(send) -> None:
+        await send({
+            "type": "http.response.start",
+            "status": 401,
+            "headers": [
+                [b"content-type", b"text/plain"],
+                [b"www-authenticate", b'Bearer realm="locus-mcp"'],
+            ],
+        })
+        await send({"type": "http.response.body", "body": b"Unauthorized"})
 
 
 # ---------------------------------------------------------------------------
@@ -115,9 +117,19 @@ def cli() -> None:
             log.warning("LOCUS_API_KEY not set — SSE endpoint is unauthenticated")
 
         host = os.environ.get("FASTMCP_HOST", "127.0.0.1")
-        port = int(os.environ.get("FASTMCP_PORT", "8000"))
+
+        port_str = os.environ.get("FASTMCP_PORT")
+        if port_str is None:
+            port = 8000
+        else:
+            try:
+                port = int(port_str)
+            except ValueError:
+                log.error("Invalid FASTMCP_PORT %r — must be an integer; using 8000", port_str)
+                port = 8000
+
         log.info("starting SSE server on %s:%d", host, port)
-        uvicorn.run(app, host=host, port=port)
+        uvicorn.run(app, host=host, port=port, log_config=None, log_level=args.log_level.lower())
     else:
         server.run(transport="stdio")
 
