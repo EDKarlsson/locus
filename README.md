@@ -1,5 +1,7 @@
 # Locus
 
+<!-- mcp-name: io.github.EDKarlsson/locus -->
+
 [![CI](https://github.com/EDKarlsson/locus/actions/workflows/ci.yml/badge.svg)](https://github.com/EDKarlsson/locus/actions/workflows/ci.yml)
 [![PyPI version](https://img.shields.io/pypi/v/locus-mcp.svg)](https://pypi.org/project/locus-mcp/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)

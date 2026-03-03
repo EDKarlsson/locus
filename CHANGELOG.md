@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.6.1 — 2026-03-02
+
+### MCP Registry ownership tag
+
+- Added `<!-- mcp-name: io.github.EDKarlsson/locus -->` to README.md (required by the
+  Official MCP Registry PyPI ownership validation)
+- Updated `server.json` with correct schema fields: `repository.source: "github"` and
+  `packages[0].transport.type: "stdio"` — passes registry validation
+
+---
+
 ## v0.6.0 — 2026-03-02
 
 ### Public Release — History squash, bug fixes, registry assets

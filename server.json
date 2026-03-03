@@ -1,14 +1,20 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.EDKarlsson/locus",
-  "description": "Hierarchical markdown memory palace for AI agents. Keeps context windows small while enabling precise, deep recall across sessions and projects via structured palace navigation.",
-  "version": "0.6.0",
-  "repository": "https://github.com/EDKarlsson/locus",
+  "description": "Hierarchical markdown memory palace for AI agents — structured palace navigation via MCP tools.",
+  "version": "0.6.1",
+  "repository": {
+    "url": "https://github.com/EDKarlsson/locus",
+    "source": "github"
+  },
   "packages": [
     {
-      "type": "pypi",
-      "name": "locus-mcp",
-      "version": "0.6.0"
+      "registryType": "pypi",
+      "identifier": "locus-mcp",
+      "version": "0.6.1",
+      "transport": {
+        "type": "stdio"
+      }
     }
   ]
 }
