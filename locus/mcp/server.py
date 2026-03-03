@@ -252,6 +252,7 @@ def _search_rg(query: str, search_root: Path, palace_root: Path) -> str:
 _MAX_READ_BYTES = 500_000   # 500 KB — palace files should be tiny
 _MAX_WRITE_BYTES = 500_000  # 500 KB — guards against runaway writes
 _MAX_QUERY_LEN = 200
+_MAX_BATCH_PATHS = 20
 
 
 def _read_bounded(path: Path, rel: str) -> str:
@@ -305,6 +306,52 @@ def _search_python(query: str, search_root: Path, palace_root: Path) -> str:
     if not results:
         return f"No matches for '{query}'"
     return "\n".join(results[:200])
+
+
+# ---------------------------------------------------------------------------
+# memory_batch
+# ---------------------------------------------------------------------------
+
+@mcp.tool()
+def memory_batch(paths: list[str]) -> str:
+    """Read multiple palace files in a single call.
+
+    ``paths`` is a list of paths relative to the palace root (maximum
+    ``_MAX_BATCH_PATHS`` entries).  Returns all files joined by ``\\n---\\n``,
+    each section headed by ``## <path>``.
+
+    Missing files, directories, and path-traversal violations are noted
+    inline — they do not raise exceptions, so a partial batch always returns.
+    """
+    if len(paths) > _MAX_BATCH_PATHS:
+        raise ValueError(
+            f"Too many paths ({len(paths)}); limit is {_MAX_BATCH_PATHS}"
+        )
+
+    root = _root()
+    log.debug("memory_batch: %d paths", len(paths))
+
+    sections: list[str] = []
+    for path in paths:
+        header = f"## {path}"
+        try:
+            target = safe_resolve(root, path)
+        except ValueError as exc:
+            sections.append(f"{header}\n\n_Path error: {exc}_")
+            continue
+
+        if not target.exists():
+            log.debug("memory_batch: not found: %s", path)
+            sections.append(f"{header}\n\n_File not found: {path}_")
+        elif target.is_dir():
+            log.debug("memory_batch: path is directory: %s", path)
+            sections.append(
+                f"{header}\n\n_'{path}' is a directory — use memory_list to browse it._"
+            )
+        else:
+            sections.append(f"{header}\n\n{_read_bounded(target, path)}")
+
+    return "\n\n---\n\n".join(sections)
 
 
 # ---------------------------------------------------------------------------

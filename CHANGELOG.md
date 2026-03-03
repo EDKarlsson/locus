@@ -1,5 +1,33 @@
 # Changelog
 
+## Unreleased
+
+### Auto-memory bridge + `memory_batch` tool
+
+**Auto-memory bridge** — `locus-mcp` now detects Claude Code's auto-memory
+directory automatically when started from a project directory with no explicit
+`--palace` argument. It derives the Claude Code project slug by replacing `/`
+with `-` in the CWD path, then checks `~/.claude/projects/<slug>/memory/`.
+If that directory exists it becomes the palace root. Zero configuration needed.
+Priority slot: `.locus/` > **auto-memory** > `~/.locus/`.
+
+**`memory_batch` tool** — new MCP tool that reads up to 20 palace files in a
+single call. Sections are joined by `---`, each headed by `## <path>`. Missing
+files, directories, and path-traversal violations are noted inline; the tool
+never raises, so partial results are always returned. Designed for research
+agents that need several rooms at startup.
+
+**Spec** — `spec/mcp-server.md` updated with `memory_batch` in the Tools table,
+an "Auto-Memory Bridge" section (slug derivation rule + log signal), and a
+"Simplify Integration Pattern" documenting the `code-patterns` palace room
+workflow for persistent project-specific context.
+
+- `feat(mcp/palace)`: `_slug_from_path`, `find_auto_memory`, updated `find_palace` priority
+- `feat(mcp/server)`: `memory_batch` tool, `_MAX_BATCH_PATHS = 20`
+- +13 unit tests (`TestFindAutoMemory`, `TestMemoryBatch`) — 199 tests total
+
+---
+
 ## v0.7.1 — 2026-03-03
 
 ### Fix: allowed hosts for SSE reverse-proxy deployments

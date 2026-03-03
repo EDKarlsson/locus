@@ -15,6 +15,32 @@ _WRITE_BLOCKED_DIRS = {"_metrics", "sessions", "archived"}
 _WRITABLE_EXTENSIONS = {".md", ".txt", ".json", ".yaml", ".yml"}
 
 
+def _slug_from_path(p: Path) -> str:
+    """Convert an absolute path to a Claude Code project slug.
+
+    Claude Code derives project slugs by replacing every ``/`` with ``-``.
+    The leading ``/`` becomes a leading ``-``.
+
+    Example: ``/home/user/git/myproject`` → ``-home-user-git-myproject``
+    """
+    return str(p).replace("/", "-")
+
+
+def find_auto_memory(cwd: Path | None = None) -> Path | None:
+    """Return ``~/.claude/projects/<slug>/memory/`` if it exists, else ``None``.
+
+    Derives the Claude Code project slug from ``cwd`` (defaults to
+    ``Path.cwd()``).  This bridges the Claude Code auto-memory system into
+    the MCP server without any explicit configuration.
+    """
+    actual_cwd = (cwd or Path.cwd()).resolve()
+    slug = _slug_from_path(actual_cwd)
+    candidate = Path.home() / ".claude" / "projects" / slug / "memory"
+    if candidate.is_dir():
+        return candidate.resolve()
+    return None
+
+
 def find_palace(palace_arg: str | None = None) -> Path:
     """Resolve the palace root.
 
@@ -22,7 +48,8 @@ def find_palace(palace_arg: str | None = None) -> Path:
     1. Explicit ``--palace`` argument
     2. ``LOCUS_PALACE`` environment variable
     3. ``.locus/`` in the current working directory
-    4. ``~/.locus/`` global palace
+    4. ``~/.claude/projects/<slug>/memory/`` (Claude Code auto-memory bridge)
+    5. ``~/.locus/`` global palace
     """
     if palace_arg:
         p = Path(palace_arg).expanduser().resolve()
@@ -43,6 +70,11 @@ def find_palace(palace_arg: str | None = None) -> Path:
     if cwd_locus.is_dir():
         log.debug("palace resolved from .locus/ in cwd: %s", cwd_locus.resolve())
         return cwd_locus.resolve()
+
+    auto_mem = find_auto_memory()
+    if auto_mem is not None:
+        log.info("palace resolved from auto-memory: %s", auto_mem)
+        return auto_mem
 
     home_locus = Path.home() / ".locus"
     if home_locus.is_dir():
