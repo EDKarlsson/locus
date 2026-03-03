@@ -1,5 +1,10 @@
 # Locus
 
+[![CI](https://github.com/EDKarlsson/locus/actions/workflows/ci.yml/badge.svg)](https://github.com/EDKarlsson/locus/actions/workflows/ci.yml)
+[![PyPI version](https://img.shields.io/pypi/v/locus-mcp.svg)](https://pypi.org/project/locus-mcp/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+
 Hierarchical markdown-based memory system for autonomous AI agents. Each directory
 is a room (locus) in the palace, containing specific knowledge navigated on demand.
 Named for the atomic unit of the [Method of Loci](https://en.wikipedia.org/wiki/Method_of_loci).
@@ -27,54 +32,69 @@ palace/
 An agent reads `INDEX.md`, navigates to the relevant room, and reads only that room.
 Session logs accumulate until consolidation merges them into canonical files.
 
+See the [wiki](https://github.com/EDKarlsson/locus/wiki) for full documentation.
+
+---
+
+## Quick start
+
+```sh
+# Install
+pip install locus-mcp
+# or: uvx locus-mcp --palace ~/.locus  (no install needed)
+
+# Create a palace from the example template
+cp -r example-palace ~/.locus
+# Edit ~/.locus/INDEX.md to describe your palace
+
+# Run the MCP server
+locus-mcp --palace ~/.locus
+# or: LOCUS_PALACE=~/.locus locus-mcp
+```
+
+---
+
 ## Installation
 
-**Claude:**
+### MCP server (recommended for MCP-capable clients)
+
+```sh
+pip install locus-mcp
+```
+
+Or run without installing using `uvx`:
+
+```sh
+uvx locus-mcp --palace ~/.locus
+```
+
+### Claude Code skills
+
 ```sh
 cp -r skills/claude/locus ~/.claude/skills/locus
 cp -r skills/claude/locus-consolidate ~/.claude/skills/locus-consolidate
 ```
 
-**Codex:**
+### Codex
+
 ```sh
 cp -r skills/codex/locus ~/.codex/skills/locus
 cp -r skills/codex/locus-consolidate ~/.codex/skills/locus-consolidate
 ```
 
-**Gemini:** Reference `skills/gemini/locus/SKILL.md` from your `.gemini/` directory
-or a GitHub Actions workflow.
+### Gemini
 
-**Agent SDK (Python):**
-```sh
-pip install -e .
-# then:
-locus --palace ~/.locus --task "What K3s gotchas exist?"
-```
+Reference `skills/gemini/locus/SKILL.md` from your `.gemini/` directory
+or a GitHub Actions workflow (see `skills/gemini/`).
 
-**MCP server:**
-```sh
-pip install -e .
-locus-mcp --palace ~/.locus
-```
-
-## Usage
+### Agent SDK (Python)
 
 ```sh
-# Query the palace
+pip install locus-mcp
 locus --palace ~/.locus --task "What toolchain conventions are set?"
-
-# Run with metrics (for benchmarking)
-locus --palace ~/.locus \
-      --task "What K3s gotchas exist?" \
-      --metrics-file tests/results/run.json
-
-# JSON output
-locus --palace ~/.locus --task "..." --json
-
-# Run the MCP server (stdio transport)
-locus-mcp --palace ~/.locus
-# or: LOCUS_PALACE=~/.locus locus-mcp
 ```
+
+---
 
 ## MCP Server
 
@@ -100,6 +120,19 @@ The `locus-mcp` command exposes four tools over the Model Context Protocol (stdi
 }
 ```
 
+Or using `uvx` (no install required):
+
+```json
+{
+  "mcpServers": {
+    "locus": {
+      "command": "uvx",
+      "args": ["locus-mcp", "--palace", "/path/to/palace"]
+    }
+  }
+}
+```
+
 ### Cursor / Zed
 
 ```json
@@ -115,56 +148,69 @@ The `locus-mcp` command exposes four tools over the Model Context Protocol (stdi
 }
 ```
 
-The MCP layer is recommended for MCP-capable clients. The skills remain the interface for Claude Code.
-See `spec/mcp-server.md` for full architecture details and `docs/architecture.md` for diagrams.
+### Environment variable
+
+All clients support `LOCUS_PALACE` as an alternative to `--palace`:
+
+```sh
+export LOCUS_PALACE=~/.locus
+locus-mcp
+```
+
+See [MCP Server Configuration](https://github.com/EDKarlsson/locus/wiki/MCP-Server-Configuration)
+for the full client setup guide and `spec/mcp-server.md` for architecture details.
+
+---
+
+## Benchmarks
+
+Palace navigation loads **52% fewer context lines** than flat memory for specific queries,
+while maintaining full recall. Session-only queries (recent work not yet consolidated)
+are accessible only via the palace.
+
+```
+Palace: 822 lines / 9 queries found   avg  91 lines/query · 3.2 calls
+Flat:  1719 lines / 8 queries found   avg 191 lines/query · 2.0 calls
+```
+
+See [`docs/benchmarks.md`](docs/benchmarks.md) for charts and full methodology.
+
+---
 
 ## Structure
 
 ```
-spec/           Convention definitions (size limits, index format, room layout, write modes)
-templates/      Copy-paste templates for INDEX.md, rooms, session logs
+example-palace/   Copy-paste palace template to get started
+spec/             Palace convention definitions:
+  index-format.md       INDEX.md rules and routing
+  room-conventions.md   Room structure and naming
+  size-limits.md        Context budget thresholds
+  write-modes.md        Session logs vs canonical edits
+  mcp-server.md         MCP server architecture and safety model
+  metrics-schema.md     Run metrics JSON schema
+  audit-algorithm.md    Palace health scoring
+  health-report-format.md  Audit report structure
+  inferred-feedback.md  Disagreement signal classification
+templates/        Copy-paste templates for INDEX.md, rooms, session logs
 skills/
-  claude/       SKILL.md files for Claude Code + Agent SDK
-  codex/        Codex-compatible skill files
-  gemini/       Gemini CLI + GitHub Actions skill files
+  claude/         SKILL.md files for Claude Code + Agent SDK
+  codex/          Codex-compatible skill files
+  gemini/         Gemini CLI + GitHub Actions skill files
 docs/
-  architecture.md   Mermaid diagrams: palace structure, MCP server, agent interfaces, lifecycle
-  benchmarks.md     Benchmark methodology, results, and charts
-  img/              Generated SVG charts
-  onboarding.md     Step-by-step agent onboarding guide
+  architecture.md       Mermaid diagrams
+  benchmarks.md         Benchmark results and charts
+  onboarding.md         Step-by-step agent onboarding
 scripts/
-  bench-mcp.py      40-case MCP integration benchmark (all 4 tools, safety, fidelity)
-  bench-compare.py  Palace vs flat recall comparison (lines loaded, tool calls, recall)
-  generate-charts.py  Regenerate docs/img/ charts from benchmark data
-  try-mcp.py        Quick MCP smoke test
-tests/
-  fixtures/     Benchmark fixtures: palace + flat + flat-palace (same facts, three structures)
-  run-benchmark.md  15-query benchmark procedure
-  results/      Benchmark run outputs
-locus/agent/    Python Agent SDK entrypoint (CLI + metrics collector)
-locus/audit/    Palace health auditor (locus-audit CLI)
-locus/feedback/ Inferred feedback signal classifier
-locus/mcp/      MCP server (locus-mcp CLI)
+  bench-mcp.py          40-case MCP integration benchmark
+  bench-compare.py      Palace vs flat recall comparison
+  generate-charts.py    Regenerate docs/img/ charts
+locus/agent/      Python Agent SDK (CLI + metrics)
+locus/audit/      Palace health auditor (locus-audit CLI)
+locus/feedback/   Inferred feedback classifier
+locus/mcp/        MCP server (locus-mcp CLI)
 ```
 
-## Benchmarking
-
-Validates the core hypothesis: palace navigation loads less context than flat for
-specific queries. Two benchmark approaches:
-
-**MCP integration benchmark** — 40 test cases across all 4 tools, safety guards, and fidelity:
-```sh
-uv run scripts/bench-mcp.py
-# Overall: 40/40 · avg 6.8ms · p95 15.8ms
-```
-
-**Palace vs flat recall comparison** — 9 recall scenarios, measures lines loaded and answer recall:
-```sh
-uv run scripts/bench-compare.py
-# Palace: 822 lines / 9 found  ·  Flat: 1719 lines / 8 found  ·  −52% avg
-```
-
-See `docs/benchmarks.md` for charts and full results, and `tests/fixtures/README.md` for fixture details.
+---
 
 ## Roadmap
 
@@ -172,9 +218,16 @@ See `docs/benchmarks.md` for charts and full results, and `tests/fixtures/README
 |---|---|---|
 | v0.1 - Foundation | ✅ Complete | Spec, conventions, size limits |
 | v0.2 - Core Palace | ✅ Complete | Templates, skills, Agent SDK, benchmark |
-| v0.3 - Performance Metrics | ✅ Complete | Context tracking, feedback command, suggestions |
-| v0.4 - Self Evaluation | ✅ Complete | Palace audit skill, health reports, inferred feedback |
+| v0.3 - Performance Metrics | ✅ Complete | Context tracking, feedback, suggestions |
+| v0.4 - Self Evaluation | ✅ Complete | Palace audit, health reports, inferred feedback |
 | v0.5 - MCP Server | ✅ Complete | MCP server with memory_list/read/write/search |
+| v0.6 - Public release | ✅ Complete | Benchmarks, docs, CI, PyPI |
+
+---
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for dev setup, test instructions, and PR guidelines.
 
 ## License
 
