@@ -56,6 +56,44 @@ class RunMetrics:
         self.total_cost_usd = cost_usd
         if model:
             self.model = model
+        self.suggestions = self.generate_suggestions()
+
+    def generate_suggestions(self) -> list[str]:
+        """Return structural suggestions based on retrieval health thresholds.
+
+        Thresholds are defined in spec/metrics-schema.md.
+        Returns an empty list when everything looks healthy.
+        """
+        suggestions: list[str] = []
+        depth = self.retrieval_depth
+        lines = self.total_lines
+
+        if self.query_type == "A":
+            if depth > 3:
+                suggestions.append(
+                    f"Type A query read {depth} files (threshold: 3). "
+                    "INDEX.md room description may be too vague — agent had to explore before finding the answer."
+                )
+            if lines > 184:  # flat baseline from benchmark fixtures
+                suggestions.append(
+                    f"Type A query loaded {lines} lines (flat baseline: 184). "
+                    "Consider splitting specialty files or pruning the room main file."
+                )
+        elif self.query_type in ("B", "C", "D"):
+            if depth > 5:
+                suggestions.append(
+                    f"Query read {depth} files (threshold: 5). "
+                    "Deep navigation detected — consider adding a sub-index or flattening nested rooms."
+                )
+        else:
+            # No query type — apply conservative generic threshold
+            if depth > 4:
+                suggestions.append(
+                    f"Agent read {depth} files. If this was a specific fact lookup, "
+                    "INDEX.md descriptions may need more detail to guide navigation."
+                )
+
+        return suggestions
 
     def to_dict(self) -> dict[str, Any]:
         return {
