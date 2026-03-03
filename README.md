@@ -178,4 +178,4 @@ See `docs/benchmarks.md` for charts and full results, and `tests/fixtures/README
 
 ## License
 
-TBD
+[MIT](LICENSE)

@@ -35,6 +35,17 @@ the content is better organized for the agent. In a real palace with 8+
 specialty files, the savings on specific queries are substantially larger
 — the agent skips 5-6 irrelevant files entirely.
 
+## flat-palace
+
+`flat-palace/` is used by `scripts/bench-compare.py` as the comparison target.
+It is a minimal palace containing:
+- `INDEX.md` — 6-line index pointing to `MEMORY.md`
+- `MEMORY.md` — **a copy of `flat/MEMORY.md`** (184 lines, all knowledge in one file)
+
+> **Note:** `flat-palace/MEMORY.md` is a copy, not a symlink. If `flat/MEMORY.md`
+> is updated, `flat-palace/MEMORY.md` must be updated to match or the comparison
+> benchmark will be testing against stale data.
+
 ## Benchmark Runner
 
 See `tests/run-benchmark.md` for the query set and how to run the benchmark.

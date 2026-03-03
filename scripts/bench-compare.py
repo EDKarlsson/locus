@@ -14,7 +14,10 @@ Usage:
 
 from __future__ import annotations
 
+import argparse
 import asyncio
+import datetime
+import json
 import time
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
@@ -280,11 +283,47 @@ def print_report(
     print()
 
 
+def build_report(
+    scenarios: list[Scenario],
+    palace_results: list[RunResult],
+    flat_results: list[RunResult],
+) -> dict:
+    return {
+        "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "scenarios": [
+            {
+                "id": s.id,
+                "question": s.question,
+                "palace": {
+                    "lines": p.lines_loaded,
+                    "calls": p.tool_calls,
+                    "found": p.found,
+                    "latency_ms": round(p.latency_ms, 1),
+                },
+                "flat": {
+                    "lines": f.lines_loaded,
+                    "calls": f.tool_calls,
+                    "found": f.found,
+                    "latency_ms": round(f.latency_ms, 1),
+                },
+            }
+            for s, p, f in zip(scenarios, palace_results, flat_results)
+        ],
+    }
+
+
 async def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--palace", default=str(PALACE))
+    parser.add_argument("--flat",   default=str(FLAT))
+    parser.add_argument("--json-out", metavar="PATH",
+                        help="Write results JSON to this file (for use with generate-charts.py)")
+    args = parser.parse_args()
+
     print("Spawning palace MCP server...")
-    async with mcp_session(PALACE) as palace_session:
+    async with mcp_session(Path(args.palace)) as palace_session:
         print("Spawning flat MCP server...")
-        async with mcp_session(FLAT) as flat_session:
+        async with mcp_session(Path(args.flat)) as flat_session:
             palace_results: list[RunResult] = []
             flat_results:   list[RunResult] = []
 
@@ -297,6 +336,12 @@ async def main() -> None:
                       f"flat={fr.lines_loaded}L/{fr.tool_calls}c {'✓' if fr.found else '✗'}")
 
     print_report(SCENARIOS, palace_results, flat_results)
+
+    if args.json_out:
+        out = Path(args.json_out)
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(json.dumps(build_report(SCENARIOS, palace_results, flat_results), indent=2))
+        print(f"Results written to {out}")
 
 
 if __name__ == "__main__":

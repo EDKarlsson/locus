@@ -10,6 +10,7 @@ Usage:
 
 import argparse
 import asyncio
+import datetime
 import json
 import time
 from dataclasses import dataclass, field
@@ -246,7 +247,34 @@ def print_report(results: list[Result]) -> None:
     print()
 
 
-async def run(palace: Path, debug: bool) -> None:
+def build_report(results: list[Result]) -> dict:
+    from collections import defaultdict
+    cats: dict[str, list[Result]] = defaultdict(list)
+    for r in results:
+        cats[r.case.category].append(r)
+    all_lats = sorted(r.latency_ms for r in results)
+    passed = sum(1 for r in results if r.passed)
+    return {
+        "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "overall": {
+            "passed": passed,
+            "total": len(results),
+            "avg_ms": round(sum(all_lats) / len(all_lats), 1),
+            "p95_ms": round(all_lats[int(0.95 * len(all_lats))], 1),
+            "max_ms": round(max(all_lats), 1),
+        },
+        "categories": {
+            cat: {
+                "passed": sum(1 for r in rs if r.passed),
+                "total": len(rs),
+                "avg_ms": round(sum(r.latency_ms for r in rs) / len(rs), 1),
+            }
+            for cat, rs in sorted(cats.items())
+        },
+    }
+
+
+async def run(palace: Path, debug: bool, json_out: Path | None = None) -> None:
     params = StdioServerParameters(
         command="uv",
         args=["run", "-m", "locus.mcp.main", "--palace", str(palace)],
@@ -271,6 +299,11 @@ async def run(palace: Path, debug: bool) -> None:
 
             print_report(results)
 
+            if json_out:
+                json_out.parent.mkdir(parents=True, exist_ok=True)
+                json_out.write_text(json.dumps(build_report(results), indent=2))
+                print(f"Results written to {json_out}")
+
             # Cleanup scratch
             import shutil
             scratch = palace / "scratch"
@@ -282,8 +315,11 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--palace", default=str(PALACE))
     parser.add_argument("--debug", action="store_true")
+    parser.add_argument("--json-out", metavar="PATH",
+                        help="Write results JSON to this file (for use with generate-charts.py)")
     args = parser.parse_args()
-    asyncio.run(run(Path(args.palace), args.debug))
+    asyncio.run(run(Path(args.palace), args.debug,
+                    Path(args.json_out) if args.json_out else None))
 
 
 if __name__ == "__main__":
