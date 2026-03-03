@@ -254,8 +254,13 @@ class TestMemorySearch:
             mcp_server.memory_search("anything", path="../../etc")
 
     def test_case_insensitive_python_fallback(self, palace: Path) -> None:
-        # Force Python fallback by testing directly
         result = mcp_server._search_python("wireguard", palace, palace)
+        assert "networking.md" in result
+
+    def test_rg_output_uses_relative_paths(self, palace: Path) -> None:
+        # rg JSON formatter should strip the palace root from paths
+        result = mcp_server.memory_search("WireGuard")
+        assert str(palace) not in result
         assert "networking.md" in result
 
     def test_python_invalid_regex_returns_error(self, palace: Path) -> None:

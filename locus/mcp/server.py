@@ -162,14 +162,16 @@ def memory_search(query: str, path: str = "") -> str:
 
 
 def _search_rg(query: str, search_root: Path, palace_root: Path) -> str:
-    """Ripgrep-backed search."""
+    """Ripgrep-backed search (JSON output for unambiguous path parsing)."""
+    import json as _json
+
     result = subprocess.run(
         [
             "rg",
             "--type", "md",
-            "--line-number",
+            "--json",
             "--context", "1",
-            "--max-count", "5",       # 5 matches per file
+            "--max-count", "5",
             "--max-filesize", "500K",
             query,
             str(search_root),
@@ -180,25 +182,43 @@ def _search_rg(query: str, search_root: Path, palace_root: Path) -> str:
     )
     if not result.stdout.strip():
         return f"No matches for '{query}'"
-    return _format_rg_output(result.stdout, palace_root)
 
+    lines: list[str] = []
+    prev_path: str | None = None
 
-def _format_rg_output(raw: str, palace_root: Path) -> str:
-    """Replace absolute paths with palace-relative paths in rg output."""
-    lines = []
-    for line in raw.splitlines():
-        # rg output: /absolute/path/file.md:10:matched text
-        if line and line[0] == "/" and ":" in line:
-            parts = line.split(":", 2)
+    for raw_line in result.stdout.splitlines():
+        try:
+            obj = _json.loads(raw_line)
+        except _json.JSONDecodeError:
+            continue
+
+        kind = obj.get("type")
+        if kind == "begin":
+            path = obj["data"]["path"]["text"]
             try:
-                rel = Path(parts[0]).relative_to(palace_root)
-                lines.append(f"{rel}:{parts[1]}:{parts[2]}")
-                continue
-            except (ValueError, IndexError):
-                pass
-        lines.append(line)
-    # Limit total output
-    return "\n".join(lines[:200])
+                rel = str(Path(path).relative_to(palace_root))
+            except ValueError:
+                rel = path
+            if prev_path and prev_path != rel:
+                lines.append("--")
+            prev_path = rel
+
+        elif kind in ("match", "context"):
+            data = obj["data"]
+            path = data["path"]["text"]
+            try:
+                rel = str(Path(path).relative_to(palace_root))
+            except ValueError:
+                rel = path
+            lineno = data["line_number"]
+            text = data["lines"]["text"].rstrip("\n")
+            sep = ":" if kind == "match" else "-"
+            lines.append(f"{rel}{sep}{lineno}{sep}{text}")
+
+        if len(lines) >= 200:
+            break
+
+    return "\n".join(lines) if lines else f"No matches for '{query}'"
 
 
 def _search_python(query: str, search_root: Path, palace_root: Path) -> str:
