@@ -20,10 +20,11 @@ class RoomSignals:
     max_specialty_lines: int = 0
     session_log_count: int = 0
     oldest_session_days: float | None = None
-    retrieval_depth_avg: float | None = None
+    retrieval_depth_avg: float | None = None   # Type A runs only
     lines_loaded_avg: float | None = None
     feedback_pass_rate: float | None = None
     feedback_fail_rate: float | None = None
+    has_recent_metrics: bool = False           # any run within 90 days
 
 
 @dataclass

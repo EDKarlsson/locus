@@ -13,6 +13,7 @@ Tests cover:
 
 import json
 import textwrap
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
@@ -183,9 +184,16 @@ class TestScoring:
         assert status == "stale"
 
     def test_not_stale_if_has_metrics(self):
-        sig = RoomSignals(main_lines=5, session_log_count=0, retrieval_depth_avg=2.0)
+        sig = RoomSignals(main_lines=5, session_log_count=0, has_recent_metrics=True)
         status, _ = score_room(sig)
         assert status == "healthy"
+
+    def test_stale_with_old_metrics_only(self):
+        # Room has retrieval_depth_avg from old runs but no recent activity
+        sig = RoomSignals(main_lines=5, session_log_count=0,
+                          retrieval_depth_avg=2.0, has_recent_metrics=False)
+        status, _ = score_room(sig)
+        assert status == "stale"
 
     def test_critical_takes_priority_over_degraded(self):
         # Both critical and degraded conditions present
@@ -201,15 +209,49 @@ class TestScoring:
 class TestMetricsEnrichment:
     def test_enriches_retrieval_depth(self, tmp_path):
         make_palace(tmp_path, {"projects/api": 10})
+        now_str = datetime.now(timezone.utc).isoformat()
         runs = [
             {"files_read": [{"path": "projects/api/api.md", "lines": 10}],
-             "retrieval_depth": 2, "total_lines": 30, "feedback": None},
+             "retrieval_depth": 2, "total_lines": 30, "feedback": None,
+             "query_type": "A", "started_at": now_str},
             {"files_read": [{"path": "projects/api/api.md", "lines": 10}],
-             "retrieval_depth": 4, "total_lines": 50, "feedback": None},
+             "retrieval_depth": 4, "total_lines": 50, "feedback": None,
+             "query_type": "A", "started_at": now_str},
         ]
         sig = RoomSignals()
         enrich_with_metrics(tmp_path / "projects" / "api", tmp_path, sig, runs)
         assert sig.retrieval_depth_avg == pytest.approx(3.0)
+
+    def test_non_type_a_excluded_from_depth(self, tmp_path):
+        make_palace(tmp_path, {"projects/api": 10})
+        runs = [
+            {"files_read": [{"path": "projects/api/api.md", "lines": 10}],
+             "retrieval_depth": 5, "total_lines": 50, "feedback": None,
+             "query_type": "B"},
+        ]
+        sig = RoomSignals()
+        enrich_with_metrics(tmp_path / "projects" / "api", tmp_path, sig, runs)
+        assert sig.retrieval_depth_avg is None
+
+    def test_has_recent_metrics_true_for_recent_run(self, tmp_path):
+        make_palace(tmp_path, {"projects/api": 10})
+        recent = (datetime.now(timezone.utc) - timedelta(days=1)).isoformat()
+        runs = [{"files_read": [{"path": "projects/api/api.md", "lines": 10}],
+                 "retrieval_depth": 2, "total_lines": 20, "feedback": None,
+                 "started_at": recent}]
+        sig = RoomSignals()
+        enrich_with_metrics(tmp_path / "projects" / "api", tmp_path, sig, runs)
+        assert sig.has_recent_metrics is True
+
+    def test_has_recent_metrics_false_for_old_run(self, tmp_path):
+        make_palace(tmp_path, {"projects/api": 10})
+        old = (datetime.now(timezone.utc) - timedelta(days=91)).isoformat()
+        runs = [{"files_read": [{"path": "projects/api/api.md", "lines": 10}],
+                 "retrieval_depth": 2, "total_lines": 20, "feedback": None,
+                 "started_at": old}]
+        sig = RoomSignals()
+        enrich_with_metrics(tmp_path / "projects" / "api", tmp_path, sig, runs)
+        assert sig.has_recent_metrics is False
 
     def test_enriches_feedback_rates(self, tmp_path):
         make_palace(tmp_path, {"projects/api": 10})

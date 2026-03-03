@@ -6,7 +6,7 @@ Algorithm defined in spec/audit-algorithm.md.
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from .model import RoomSignals, RoomResult, AuditSummary
@@ -17,6 +17,21 @@ def _count_lines(path: Path) -> int:
         return sum(1 for _ in path.open("r", errors="replace"))
     except OSError:
         return 0
+
+
+_STALE_DAYS = 90
+
+
+def _is_recent(ts_str: str | None) -> bool:
+    """Return True if ts_str is an ISO 8601 timestamp within the last _STALE_DAYS days."""
+    if not ts_str:
+        return False
+    try:
+        dt = datetime.fromisoformat(ts_str.replace("Z", "+00:00"))
+        cutoff = datetime.now(timezone.utc) - timedelta(days=_STALE_DAYS)
+        return dt >= cutoff
+    except (ValueError, AttributeError):
+        return False
 
 
 def _days_ago(path: Path) -> float:
@@ -114,12 +129,18 @@ def enrich_with_metrics(
     if not touching:
         return
 
-    depths = [r["retrieval_depth"] for r in touching if "retrieval_depth" in r]
+    # retrieval_depth_avg: Type A runs only (per spec/audit-algorithm.md)
+    type_a = [r for r in touching if r.get("query_type") == "A"]
+    if type_a:
+        depths = [r["retrieval_depth"] for r in type_a if "retrieval_depth" in r]
+        if depths:
+            signals.retrieval_depth_avg = sum(depths) / len(depths)
+
     lines = [r["total_lines"] for r in touching if "total_lines" in r]
-    if depths:
-        signals.retrieval_depth_avg = sum(depths) / len(depths)
     if lines:
         signals.lines_loaded_avg = sum(lines) / len(lines)
+
+    signals.has_recent_metrics = any(_is_recent(r.get("started_at")) for r in touching)
 
     feedback = [
         r["feedback"] for r in touching
@@ -161,9 +182,8 @@ def score_room(signals: RoomSignals) -> tuple[str, list[str]]:
     if actions:
         return "degraded", actions
 
-    # Stale: no sessions, no recent metrics, tiny main file
-    no_metrics = signals.retrieval_depth_avg is None
-    if signals.session_log_count == 0 and no_metrics and signals.main_lines < 10:
+    # Stale: no sessions, no metrics in last 90 days, tiny main file
+    if signals.session_log_count == 0 and not signals.has_recent_metrics and signals.main_lines < 10:
         return "stale", ["Consider archiving or deleting this room (no usage detected)"]
 
     return "healthy", []
