@@ -10,3 +10,6 @@ dist/
 
 # Palace system directories (not knowledge — exclude from commits by default)
 _metrics/
+
+# Local MCP config (personal palace path — not committed)
+.mcp.json

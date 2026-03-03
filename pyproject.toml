@@ -11,6 +11,7 @@ dependencies = [
 [project.scripts]
 locus = "locus.agent.main:cli"
 locus-audit = "locus.audit.main:cli"
+locus-mcp = "locus.mcp.main:cli"
 
 [build-system]
 requires = ["hatchling"]

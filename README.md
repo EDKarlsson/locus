@@ -51,6 +51,12 @@ pip install -e .
 locus --palace ~/.locus --task "What K3s gotchas exist?"
 ```
 
+**MCP server:**
+```sh
+pip install -e .
+locus-mcp --palace ~/.locus
+```
+
 ## Usage
 
 ```sh
@@ -64,7 +70,53 @@ locus --palace ~/.locus \
 
 # JSON output
 locus --palace ~/.locus --task "..." --json
+
+# Run the MCP server (stdio transport)
+locus-mcp --palace ~/.locus
+# or: LOCUS_PALACE=~/.locus locus-mcp
 ```
+
+## MCP Server
+
+The `locus-mcp` command exposes four tools over the Model Context Protocol (stdio transport):
+
+| Tool | Description |
+|---|---|
+| `memory_list` | Returns `INDEX.md` (no args) or lists a room's files |
+| `memory_read` | Reads any file in the palace |
+| `memory_write` | Atomically writes a file (guarded — cannot write to `_metrics/`, `sessions/`) |
+| `memory_search` | Full-text search across the palace (ripgrep or Python fallback) |
+
+### Claude Desktop (`claude_desktop_config.json`)
+
+```json
+{
+  "mcpServers": {
+    "locus": {
+      "command": "locus-mcp",
+      "args": ["--palace", "/path/to/palace"]
+    }
+  }
+}
+```
+
+### Cursor / Zed
+
+```json
+{
+  "mcp": {
+    "servers": {
+      "locus": {
+        "command": "locus-mcp",
+        "args": ["--palace", "/path/to/palace"]
+      }
+    }
+  }
+}
+```
+
+The MCP layer is recommended for MCP-capable clients. The skills remain the interface for Claude Code.
+See `spec/mcp-server.md` for full architecture details.
 
 ## Structure
 
@@ -81,6 +133,9 @@ tests/
   run-benchmark.md  15-query benchmark procedure
   results/      Benchmark run outputs
 locus/agent/    Python Agent SDK entrypoint (CLI + metrics collector)
+locus/audit/    Palace health auditor (locus-audit CLI)
+locus/feedback/ Inferred feedback signal classifier
+locus/mcp/      MCP server (locus-mcp CLI)
 ```
 
 ## Benchmarking
@@ -105,9 +160,9 @@ See `tests/run-benchmark.md` for the full 15-query set and results template.
 |---|---|---|
 | v0.1 - Foundation | ✅ Complete | Spec, conventions, size limits |
 | v0.2 - Core Palace | ✅ Complete | Templates, skills, Agent SDK, benchmark |
-| v0.3 - Performance Metrics | Planned | Context tracking, feedback command, suggestions |
-| v0.4 - Self Evaluation | Planned | Palace audit skill, health reports |
-| v0.5 - MCP Server | Planned | Optional MCP layer with search |
+| v0.3 - Performance Metrics | ✅ Complete | Context tracking, feedback command, suggestions |
+| v0.4 - Self Evaluation | ✅ Complete | Palace audit skill, health reports, inferred feedback |
+| v0.5 - MCP Server | ✅ Complete | MCP server with memory_list/read/write/search |
 
 ## License
 
