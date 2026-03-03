@@ -7,3 +7,6 @@ __pycache__/
 *.pyo
 dist/
 *.egg-info/
+
+# Palace system directories (not knowledge — exclude from commits by default)
+_metrics/

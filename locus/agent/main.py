@@ -8,8 +8,6 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import asyncio
-import json
 import sys
 from pathlib import Path
 
@@ -27,10 +25,12 @@ async def run(
     max_turns: int = 20,
     output_json: bool = False,
     metrics_file: Path | None = None,
+    query_type: str | None = None,
 ) -> RunMetrics:
     """Run a Locus agent against a palace directory.
 
-    Returns the run metrics for benchmark comparison.
+    Returns the run metrics. Metrics are written to _metrics/ in the palace
+    by default, or to --metrics-file when provided (e.g. for benchmark runs).
     """
     palace_path = palace_path.resolve()
     if not palace_path.is_dir():
@@ -40,7 +40,7 @@ async def run(
     if not index.exists():
         print(f"Warning: no INDEX.md found in {palace_path}", file=sys.stderr)
 
-    metrics = RunMetrics(palace_path=str(palace_path), task=task)
+    metrics = RunMetrics(palace_path=str(palace_path), task=task, query_type=query_type)
     collector = MetricsCollector(metrics)
 
     options = build_options(palace_path, max_turns=max_turns)
@@ -61,9 +61,9 @@ async def run(
     if not output_json:
         print(f"\n{metrics.summary()}")
 
-    if metrics_file:
-        metrics_file.parent.mkdir(parents=True, exist_ok=True)
-        metrics_file.write_text(metrics.to_json())
+    out_path = metrics_file or metrics.default_output_path()
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(metrics.to_json())
 
     return metrics
 
@@ -100,7 +100,13 @@ def cli() -> None:
         "--metrics-file",
         type=Path,
         default=None,
-        help="Write run metrics JSON to this file (e.g. tests/results/run.json).",
+        help="Write metrics JSON to this path instead of palace/_metrics/.",
+    )
+    parser.add_argument(
+        "--query-type",
+        choices=["A", "B", "C", "D"],
+        default=None,
+        help="Benchmark query type (A=specific fact, B=cross-domain, C=recency, D=troubleshooting).",
     )
 
     args = parser.parse_args()
@@ -112,6 +118,7 @@ def cli() -> None:
         args.max_turns,
         args.output_json,
         args.metrics_file,
+        args.query_type,
     )
 
     if args.output_json:
