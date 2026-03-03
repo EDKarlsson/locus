@@ -28,11 +28,11 @@ jobs:
   security-audit:
     runs-on: ubuntu-latest
     permissions:
-      contents: write
-      pull-requests: write
+      contents: read        # read-only; only elevate to write if the action must commit
+      pull-requests: write  # needed to post review comments
     steps:
       - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v4
+      - uses: astral-sh/setup-uv@v5
         with:
           version: "latest"
       - name: Run AI security review
@@ -40,6 +40,10 @@ jobs:
         with:
           prompt_file: .github/prompts/codex-security-audit.md
 ```
+
+> **Supply-chain note:** Third-party actions are pinned to mutable tags above for
+> readability. For production pipelines, pin to immutable commit SHAs and use a
+> tool like Renovate or Dependabot to keep them updated.
 
 Replace `<provider-action>` with your configured runner for Claude, Codex, Copilot, or Gemini.
 
@@ -54,8 +58,8 @@ This repo now includes a Claude workflow configured as manual-only
 
 It reads `.github/prompts/claude-security-audit.md`, runs Claude via the
 Anthropic GitHub Action, and uploads audit artifacts from `docs/audits/`.
-To enable automatic PR runs later, add a `pull_request` trigger back to the
-workflow once `ANTHROPIC_API_KEY` is configured.
+To trigger the audit for a specific PR and have the comment auto-posted, supply
+the `pr_number` dispatch input when running the workflow manually.
 
 ## Automatic PR Comment Posting
 
@@ -65,9 +69,10 @@ This repo now includes a follow-up workflow:
 .github/workflows/post-ai-security-pr-comment.yml
 ```
 
-It triggers after `Claude Security Audit` completes successfully on a PR,
-downloads the `claude-security-audit` artifact, and posts
-`*-security-pr-comment.md` to the PR automatically.
+It triggers after `Claude Security Audit` completes successfully when a
+`pr_number` input was provided at dispatch time, downloads the
+`claude-security-audit` artifact, and posts `*-security-pr-comment.md` to
+the specified PR automatically.
 
 ## Copilot Example
 
@@ -92,6 +97,9 @@ Gemini already has a documented action pattern in this repo:
   with:
     prompt_file: .github/prompts/gemini-security-audit.md
 ```
+
+> **Supply-chain note:** Pin `google-github-actions/run-gemini-cli` to a
+> commit SHA in production to guard against upstream tag changes.
 
 ## Recommended Follow-up Steps
 

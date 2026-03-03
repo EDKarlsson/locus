@@ -2,21 +2,28 @@ name: Claude Security Audit
 
 on:
   workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'PR number to post security audit comment on (leave blank to skip)'
+        required: false
+        default: ''
 
 permissions:
-  contents: write
+  contents: read
   pull-requests: write
-  issues: write
 
 jobs:
   claude-security-audit:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
 
       - name: Validate Claude API key
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
-          if [ -z "${{ secrets.ANTHROPIC_API_KEY }}" ]; then
+          if [ -z "${ANTHROPIC_API_KEY}" ]; then
             echo "Missing required secret: ANTHROPIC_API_KEY"
             exit 1
           fi
@@ -25,9 +32,9 @@ jobs:
         id: prompt
         run: |
           {
-            echo "prompt<<EOF"
+            echo "prompt<<CLAUDE_SECURITY_AUDIT_PROMPT_EOF"
             cat .github/prompts/claude-security-audit.md
-            echo "EOF"
+            echo "CLAUDE_SECURITY_AUDIT_PROMPT_EOF"
           } >> "$GITHUB_OUTPUT"
 
       - name: Run Claude security audit
@@ -44,6 +51,9 @@ jobs:
         with:
           name: claude-security-audit
           path: |
-            docs/audits/**/*.md
-            docs/audits/artifacts/*
+            docs/audits/claude-security-pr-review-report.md
+            docs/audits/claude-security-pr-comment.md
+            docs/audits/artifacts/claude-bandit.json
+            docs/audits/artifacts/claude-pip-audit.txt
           if-no-files-found: ignore
+          retention-days: 14

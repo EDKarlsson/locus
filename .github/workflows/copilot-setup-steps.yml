@@ -3,6 +3,7 @@ name: Copilot Setup Steps
 on:
   workflow_dispatch:
   push:
+    branches: [main]
     paths:
       - ".github/workflows/copilot-setup-steps.yml"
       - ".github/prompts/copilot-security-audit.md"
@@ -37,7 +38,6 @@ jobs:
           uv run --with bandit bandit --version
           uv run --with pip-audit pip-audit --version
 
-      - name: Prompt path hint
+      - name: Verify prompt file is non-empty
         run: |
-          echo "Copilot security prompt:"
-          echo "  .github/prompts/copilot-security-audit.md"
+          wc -l .github/prompts/copilot-security-audit.md

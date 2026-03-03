@@ -11,7 +11,7 @@ You are running in GitHub Actions. Execute a full security audit pass and genera
 3. Run security tooling:
    - `mkdir -p docs/audits/artifacts`
    - `uv run --with bandit bandit -r locus -f json -o docs/audits/artifacts/gemini-bandit.json || true`
-   - `uv run --with pip-audit pip-audit > docs/audits/artifacts/gemini-pip-audit.txt || true`
+   - `uv run --with pip-audit pip-audit > docs/audits/artifacts/gemini-pip-audit.txt 2>&1 || true`
 4. Manually review exploitability and attack vectors in:
    - `locus/mcp/`
    - `locus/agent/`

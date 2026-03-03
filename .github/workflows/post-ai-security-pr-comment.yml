@@ -12,10 +12,11 @@ permissions:
 
 jobs:
   post-security-comment:
+    # Only runs when the upstream audit was dispatched with a pr_number input
+    # and completed successfully.
     if: >
       github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.event == 'pull_request' &&
-      github.event.workflow_run.pull_requests[0].number != null
+      github.event.workflow_run.inputs.pr_number != ''
     runs-on: ubuntu-latest
     steps:
       - name: Download Claude audit artifact
@@ -38,20 +39,20 @@ jobs:
           gh api "repos/${REPO}/actions/artifacts/${artifact_id}/zip" > /tmp/ai-audit/claude-security-audit.zip
           unzip -q /tmp/ai-audit/claude-security-audit.zip -d /tmp/ai-audit/unpacked
 
-          comment_file="$(find /tmp/ai-audit/unpacked -type f -name '*-security-pr-comment.md' | sort | head -n1)"
+          comment_file="$(find /tmp/ai-audit/unpacked -maxdepth 1 -type f -name '*-security-pr-comment.md' | sort | head -n1)"
           if [ -z "${comment_file}" ]; then
             echo "found=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
           echo "found=true" >> "$GITHUB_OUTPUT"
-          echo "comment_file=${comment_file}" >> "$GITHUB_OUTPUT"
+          printf 'comment_file=%s\n' "${comment_file}" >> "$GITHUB_OUTPUT"
 
       - name: Post PR comment
         if: steps.artifact.outputs.found == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
-          PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number }}
+          PR_NUMBER: ${{ github.event.workflow_run.inputs.pr_number }}
           COMMENT_FILE: ${{ steps.artifact.outputs.comment_file }}
         run: |
           gh pr comment "${PR_NUMBER}" --body-file "${COMMENT_FILE}"

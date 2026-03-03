@@ -11,7 +11,7 @@ You are running in GitHub Actions. Execute a security-focused review of this rep
 3. Run security scanners and capture outputs:
    - `mkdir -p docs/audits/artifacts`
    - `uv run --with bandit bandit -r locus -f json -o docs/audits/artifacts/codex-bandit.json || true`
-   - `uv run --with pip-audit pip-audit > docs/audits/artifacts/codex-pip-audit.txt || true`
+   - `uv run --with pip-audit pip-audit > docs/audits/artifacts/codex-pip-audit.txt 2>&1 || true`
 4. Manually audit attack surfaces in:
    - `locus/mcp/`
    - `locus/agent/`

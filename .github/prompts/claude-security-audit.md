@@ -17,7 +17,7 @@ You are running in GitHub Actions on this repository. Perform a security-focused
 3. Run security scanners and save artifacts:
    - `mkdir -p docs/audits/artifacts`
    - `uv run --with bandit bandit -r locus -f json -o docs/audits/artifacts/claude-bandit.json || true`
-   - `uv run --with pip-audit pip-audit > docs/audits/artifacts/claude-pip-audit.txt || true`
+   - `uv run --with pip-audit pip-audit > docs/audits/artifacts/claude-pip-audit.txt 2>&1 || true`
 4. Perform targeted manual review of:
    - `locus/mcp/*.py`
    - `locus/agent/*.py`

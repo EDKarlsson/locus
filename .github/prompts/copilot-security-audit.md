@@ -11,7 +11,7 @@ Run a security review of this repository inside GitHub Actions and produce a cle
 3. Run security checks:
    - `mkdir -p docs/audits/artifacts`
    - `uv run --with bandit bandit -r locus -f json -o docs/audits/artifacts/copilot-bandit.json || true`
-   - `uv run --with pip-audit pip-audit > docs/audits/artifacts/copilot-pip-audit.txt || true`
+   - `uv run --with pip-audit pip-audit > docs/audits/artifacts/copilot-pip-audit.txt 2>&1 || true`
 4. Perform manual code review for vulnerabilities in:
    - `locus/mcp/server.py`
    - `locus/mcp/palace.py`

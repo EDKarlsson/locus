@@ -68,10 +68,6 @@ def collect_room_signals(room_dir: Path) -> RoomSignals:
 
     sessions_dir = room_dir / "sessions"
     if sessions_dir.exists():
-        logs = [
-            f for f in sessions_dir.glob("*.md")
-            if f.parent.name != "archived"
-        ]
         archived = sessions_dir / "archived"
         logs = [f for f in sessions_dir.glob("*.md")
                 if not (archived.exists() and f.is_relative_to(archived))]

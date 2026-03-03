@@ -263,6 +263,13 @@ class TestMemorySearch:
         assert str(palace) not in result
         assert "networking.md" in result
 
-    def test_python_invalid_regex_returns_error(self, palace: Path) -> None:
+    def test_python_query_treated_as_literal_not_regex(self, palace: Path) -> None:
+        # Queries are escaped before compiling so regex-special chars are treated as literals.
+        # "[invalid" would raise re.error if compiled raw; with escaping it is a valid literal.
         result = mcp_server._search_python("[invalid", palace, palace)
-        assert "Invalid search pattern" in result
+        assert "Invalid search pattern" not in result
+        assert "No matches" in result
+
+    def test_python_query_too_long_returns_error(self, palace: Path) -> None:
+        result = mcp_server._search_python("x" * 201, palace, palace)
+        assert "Query too long" in result

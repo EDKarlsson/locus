@@ -78,6 +78,19 @@ def run_audit(palace_path: Path, room_filter: str | None = None) -> AuditResult:
             "room": "INDEX.md",
             "action": f"Trim INDEX.md — {index_lines} lines exceeds 50-line limit",
         })
+        priority += 1
+
+    # Unstructured directories action (spec/audit-algorithm.md:127)
+    if unstructured > 0:
+        action_items.append({
+            "priority": priority,
+            "status": "warning",
+            "room": "(unstructured)",
+            "action": (
+                f"{unstructured} director{'y' if unstructured == 1 else 'ies'} contain .md files "
+                "but lack a <dirname>.md main file — add a main file or restructure into a proper room"
+            ),
+        })
 
     return AuditResult(
         audited_at=audited_at,

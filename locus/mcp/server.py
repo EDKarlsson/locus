@@ -245,12 +245,19 @@ def _search_rg(query: str, search_root: Path, palace_root: Path) -> str:
     return "\n".join(lines) if lines else f"No matches for '{query}'"
 
 
+_MAX_QUERY_LEN = 200
+
+
 def _search_python(query: str, search_root: Path, palace_root: Path) -> str:
-    """Python re fallback search."""
-    try:
-        pattern = re.compile(query, re.IGNORECASE)
-    except re.error as exc:
-        return f"Invalid search pattern: {exc}"
+    """Python re fallback search.
+
+    Queries are treated as literals (not regexes) to prevent ReDoS — MCP
+    clients send natural language, not patterns.  Query length is capped to
+    bound worst-case scanning time.
+    """
+    if len(query) > _MAX_QUERY_LEN:
+        return f"Query too long ({len(query)} chars, max {_MAX_QUERY_LEN})"
+    pattern = re.compile(re.escape(query), re.IGNORECASE)
 
     results: list[str] = []
     md_files = sorted(search_root.rglob("*.md"))
