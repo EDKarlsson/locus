@@ -63,7 +63,11 @@ uv run scripts/bench-mcp.py
 2. Make your change with tests
 3. Ensure `uv run pytest tests/unit/` passes
 4. Open a PR — describe what you changed and why
-5. PRs are squash-merged into `main`
+5. For major changes (core code/spec/workflow), update the GitHub wiki and fill
+   the PR's **Wiki Update** section (`Wiki updated`, wiki link, wiki summary)
+6. If the PR doesn't include the wiki update, pull/rebase latest `main` first
+   and re-check whether wiki changes have already landed there
+7. PRs are squash-merged into `main`
 
 ---
 

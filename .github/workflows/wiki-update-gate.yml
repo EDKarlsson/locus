@@ -1,0 +1,131 @@
+name: Wiki Update Gate
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited, ready_for_review, labeled, unlabeled]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  wiki-update-gate:
+    name: Verify wiki update for major changes
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check PR body for wiki update evidence
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const labels = (pr.labels || []).map(l => (l.name || "").toLowerCase());
+
+            if (labels.includes("skip-wiki-check")) {
+              core.notice("Skipping wiki gate because 'skip-wiki-check' label is present.");
+              return;
+            }
+
+            const files = await github.paginate(github.rest.pulls.listFiles, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: pr.number,
+              per_page: 100
+            });
+
+            const changed = files.map(f => f.filename);
+
+            const ignoredPrefixes = [
+              "docs/audits/"
+            ];
+
+            const majorPrefixes = [
+              "locus/",
+              "spec/",
+              "scripts/",
+              "templates/",
+              "skills/",
+              ".github/workflows/"
+            ];
+
+            const majorExact = new Set([
+              "pyproject.toml",
+              "README.md",
+              "SPECIFICATION.md",
+              "CHANGELOG.md"
+            ]);
+
+            function isIgnored(path) {
+              return ignoredPrefixes.some(prefix => path.startsWith(prefix));
+            }
+
+            function isMajor(path) {
+              return majorExact.has(path) || majorPrefixes.some(prefix => path.startsWith(prefix));
+            }
+
+            const majorChanged = changed.filter(path => !isIgnored(path) && isMajor(path));
+
+            core.summary
+              .addHeading("Wiki Update Gate")
+              .addRaw(`Major files changed: ${majorChanged.length}\n\n`);
+
+            if (majorChanged.length === 0) {
+              core.summary.addRaw("No major feature/spec/workflow changes detected. Wiki update not required.\n");
+              await core.summary.write();
+              core.notice("No major changes detected; wiki update gate passed.");
+              return;
+            }
+
+            core.summary.addRaw("Major changed files:\n");
+            for (const file of majorChanged.slice(0, 30)) {
+              core.summary.addRaw(`- ${file}\n`);
+            }
+            if (majorChanged.length > 30) {
+              core.summary.addRaw(`- ...and ${majorChanged.length - 30} more\n`);
+            }
+            core.summary.addRaw("\n");
+
+            const compare = await github.rest.repos.compareCommits({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              base: pr.base.sha,
+              head: pr.head.sha
+            });
+            const behindBy = compare.data.behind_by || 0;
+            core.summary.addRaw(`Branch is behind base by: ${behindBy} commit(s)\n\n`);
+
+            const body = pr.body || "";
+            const hasWikiCheckbox = /- \[[xX]\]\s*Wiki\s+updated/i.test(body);
+            const hasWikiLink = /https:\/\/github\.com\/[^/\s]+\/[^/\s]+\/wiki\/\S+/i.test(body);
+            const hasWikiSummary = /Wiki\s+Summary\s*:[^\n]+/i.test(body) || /##\s*Wiki\s+Summary[\s\S]*\S+/i.test(body);
+
+            if (hasWikiCheckbox && hasWikiLink && hasWikiSummary) {
+              core.summary.addRaw("PR contains required wiki update evidence.\n");
+              await core.summary.write();
+              core.notice("Wiki update gate passed.");
+              return;
+            }
+
+            core.summary.addRaw("Missing required wiki update evidence in PR body.\n");
+            core.summary.addRaw("\nRequired when major files change:\n");
+            core.summary.addRaw("- Checked box: `- [x] Wiki updated`\n");
+            core.summary.addRaw("- At least one wiki URL: `https://github.com/<owner>/<repo>/wiki/...`\n");
+            core.summary.addRaw("- `Wiki Summary:` line or `## Wiki Summary` section\n");
+            if (behindBy > 0) {
+              core.summary.addRaw(`- This branch is behind \`${pr.base.ref}\` by ${behindBy} commit(s); pull/rebase from \`${pr.base.ref}\` first in case wiki updates already landed there.\n`);
+            }
+            await core.summary.write();
+
+            if (behindBy > 0) {
+              core.setFailed(
+                `Major changes detected, wiki update evidence is missing, and this branch is behind ${pr.base.ref} by ${behindBy} commit(s). ` +
+                `Pull/rebase ${pr.base.ref}, then update the PR body with '- [x] Wiki updated', a wiki URL, and a 'Wiki Summary'. ` +
+                `Use label 'skip-wiki-check' only for approved exceptions.`
+              );
+            } else {
+              core.setFailed(
+                "Major changes detected but wiki update evidence is missing. " +
+                "Update the PR body with: '- [x] Wiki updated', a wiki URL, and a 'Wiki Summary'. " +
+                "Or add label 'skip-wiki-check' for approved exceptions."
+              );
+            }
