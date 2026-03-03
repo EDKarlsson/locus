@@ -321,7 +321,11 @@ def memory_batch(paths: list[str]) -> str:
     each section headed by ``## <path>``.
 
     Missing files, directories, and path-traversal violations are noted
-    inline — they do not raise exceptions, so a partial batch always returns.
+    inline and do not raise exceptions, so partial results are always
+    returned for valid calls.  Raises ``ValueError`` only for invalid
+    arguments (e.g. more than ``_MAX_BATCH_PATHS`` paths).
+
+    Returns an empty string for an empty ``paths`` list.
     """
     if len(paths) > _MAX_BATCH_PATHS:
         raise ValueError(
@@ -331,27 +335,24 @@ def memory_batch(paths: list[str]) -> str:
     root = _root()
     log.debug("memory_batch: %d paths", len(paths))
 
-    sections: list[str] = []
-    for path in paths:
-        header = f"## {path}"
+    def _process_one(path: str) -> str:
+        # Sanitize path for display — strip newlines to prevent Markdown injection.
+        display = path.replace("\n", " ").replace("\r", " ")
+        header = f"## {display}"
         try:
             target = safe_resolve(root, path)
         except ValueError as exc:
-            sections.append(f"{header}\n\n_Path error: {exc}_")
-            continue
+            return f"{header}\n\n_Path error: {exc}_"
 
         if not target.exists():
             log.debug("memory_batch: not found: %s", path)
-            sections.append(f"{header}\n\n_File not found: {path}_")
-        elif target.is_dir():
+            return f"{header}\n\n_File not found: {display}_"
+        if target.is_dir():
             log.debug("memory_batch: path is directory: %s", path)
-            sections.append(
-                f"{header}\n\n_'{path}' is a directory — use memory_list to browse it._"
-            )
-        else:
-            sections.append(f"{header}\n\n{_read_bounded(target, path)}")
+            return f"{header}\n\n_'{display}' is a directory — use memory_list to browse it._"
+        return f"{header}\n\n{_read_bounded(target, path)}"
 
-    return "\n\n---\n\n".join(sections)
+    return "\n\n---\n\n".join(_process_one(p) for p in paths)
 
 
 # ---------------------------------------------------------------------------

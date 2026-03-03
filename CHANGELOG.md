@@ -13,9 +13,11 @@ Priority slot: `.locus/` > **auto-memory** > `~/.locus/`.
 
 **`memory_batch` tool** — new MCP tool that reads up to 20 palace files in a
 single call. Sections are joined by `---`, each headed by `## <path>`. Missing
-files, directories, and path-traversal violations are noted inline; the tool
-never raises, so partial results are always returned. Designed for research
-agents that need several rooms at startup.
+files, directories, and path-traversal violations are noted inline (never
+raised as exceptions), so partial results are always returned for valid calls.
+Raises `ValueError` only for invalid arguments (more than 20 paths). Path
+headers are sanitized to strip embedded newlines and prevent Markdown injection.
+Designed for research agents that need several rooms at startup.
 
 **Spec** — `spec/mcp-server.md` updated with `memory_batch` in the Tools table,
 an "Auto-Memory Bridge" section (slug derivation rule + log signal), and a

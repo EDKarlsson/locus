@@ -393,6 +393,29 @@ class TestFindAutoMemory:
         result = find_auto_memory(cwd=tmp_path / "some" / "project")
         assert result is None
 
+    def test_cwd_locus_precedes_auto_memory(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        fake_home = tmp_path / "home"
+        fake_cwd = tmp_path / "projects" / "myrepo"
+        fake_cwd.mkdir(parents=True)
+
+        # .locus/ in CWD takes priority over auto-memory
+        cwd_locus = fake_cwd / ".locus"
+        cwd_locus.mkdir()
+
+        # Also create the auto-memory directory — should NOT be selected
+        slug = _slug_from_path(fake_cwd)
+        auto_mem = fake_home / ".claude" / "projects" / slug / "memory"
+        auto_mem.mkdir(parents=True)
+
+        monkeypatch.setenv("HOME", str(fake_home))
+        monkeypatch.delenv("LOCUS_PALACE", raising=False)
+        monkeypatch.chdir(fake_cwd)
+
+        result = find_palace()
+        assert result == cwd_locus.resolve()
+
 
 # ---------------------------------------------------------------------------
 # memory_batch
@@ -432,3 +455,16 @@ class TestMemoryBatch:
     def test_empty_list_returns_empty_string(self) -> None:
         result = mcp_server.memory_batch([])
         assert result == ""
+
+    def test_newline_in_path_sanitized_in_header(self) -> None:
+        # Embedded newlines in a path must not produce a standalone fake section header.
+        # After sanitization "\n" → " ", the output contains a single line:
+        #   "## INDEX.md  ## INJECTED"
+        # — not a standalone "## INJECTED" on its own line.
+        result = mcp_server.memory_batch(["INDEX.md\n\n## INJECTED"])
+        lines = result.splitlines()
+        standalone_headers = [l for l in lines if l.startswith("## ")]
+        # Exactly one section header — not two
+        assert len(standalone_headers) == 1
+        # Newlines collapsed to spaces — whole thing on a single header line
+        assert standalone_headers[0] == "## INDEX.md  ## INJECTED"
