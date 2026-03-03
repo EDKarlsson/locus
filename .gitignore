@@ -17,6 +17,10 @@ docs/audits/artifacts/
 # Local MCP config (personal palace path — not committed)
 .mcp.json
 
+# Type checker / test caches
+.mypy_cache/
+.pytest_cache/
+
 # Editor / IDE
 .obsidian/
 .idea/

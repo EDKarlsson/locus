@@ -1,6 +1,37 @@
 # Changelog
 
-## Unreleased — 2026-03-02
+## v0.6.0 — 2026-03-02
+
+### Public Release — History squash, bug fixes, registry assets
+
+**History**
+- 31 commits squashed to 6 clean milestone commits (`feat(v0.1)` through `feat(v0.6)`)
+- Personal local paths and private project references removed from `CLAUDE.md`,
+  `SPECIFICATION.md`, and `spec/reference-analysis.md`
+
+**Audit fixes**
+- `fix(audit)`: stale-room check now requires no `_metrics/` activity in the last
+  **90 days** (not just "no metrics ever") — `RoomSignals.has_recent_metrics` tracks
+  this via `_is_recent()` on each run's `started_at` timestamp
+- `fix(audit)`: `retrieval_depth_avg` is now computed from **Type A runs only**
+  (`query_type == "A"`) per `spec/audit-algorithm.md`; non-benchmark runs no longer
+  inflate the degraded signal
+- +4 tests → 181 total
+
+**MCP security**
+- `fix(mcp)`: SEC-002 — `_MAX_READ_BYTES` (500 KB) bounds `memory_read` and
+  `memory_list` file reads; `_MAX_WRITE_BYTES` (500 KB) rejects oversized writes
+  before any file I/O; `_read_bounded()` centralises both read paths
+- +2 tests → 183 total
+
+**Registry**
+- `smithery.yaml` — Smithery.ai stdio config: `uvx locus-mcp` with `palace` path
+  as optional configSchema field
+- `server.json` — Official MCP Registry format (`io.github.EDKarlsson/locus`,
+  PyPI package `locus-mcp` v0.6.0); also used by Glama.ai
+- For mcp.so: `npx mcp-index https://github.com/EDKarlsson/locus`
+
+---
 
 ### MCP Integration Benchmarks + Architecture Docs
 
