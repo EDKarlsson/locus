@@ -13,3 +13,8 @@ _metrics/
 
 # Local MCP config (personal palace path — not committed)
 .mcp.json
+
+# Editor / IDE
+.obsidian/
+.idea/
+*.code-workspace

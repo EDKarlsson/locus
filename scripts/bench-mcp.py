@@ -1,0 +1,290 @@
+"""
+bench-mcp.py — Live integration benchmark for locus-mcp server.
+
+Spawns the MCP server via stdio and runs structured test cases across
+all four tools. Measures latency, correctness, safety, and search precision.
+
+Usage:
+    uv run scripts/bench-mcp.py [--palace PATH] [--debug]
+"""
+
+import argparse
+import asyncio
+import json
+import time
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any, Callable
+
+from mcp import ClientSession, StdioServerParameters
+from mcp.client.stdio import stdio_client
+
+PALACE = Path(__file__).parent.parent / "tests" / "fixtures" / "palace"
+
+
+# ---------------------------------------------------------------------------
+# Test case definition
+# ---------------------------------------------------------------------------
+
+@dataclass
+class Case:
+    """A single MCP tool invocation with expected outcome."""
+    id: str
+    tool: str                          # memory_list | memory_read | memory_write | memory_search
+    args: dict[str, Any]
+    # Scoring: provide ONE of these
+    expect_contains: str | None = None  # result must contain this string
+    expect_blocked: bool = False        # expect an MCP error (safety guard)
+    expect_lines: int | None = None     # write: result must report this many lines
+    expect_hit_count: int | None = None # search: must return exactly N match blocks
+    category: str = "general"          # used for per-category stats
+
+
+CASES: list[Case] = [
+    # -----------------------------------------------------------------------
+    # Navigation — read-only traversal of the fixture palace
+    # -----------------------------------------------------------------------
+    Case("list-index",        "memory_list", {},
+         expect_contains="homelab-iac", category="navigation"),
+    Case("list-room",         "memory_list", {"path": "projects/homelab-iac"},
+         expect_contains="homelab-iac.md", category="navigation"),
+    Case("list-room-sessions","memory_list", {"path": "projects/homelab-iac"},
+         expect_contains="sessions/", category="navigation"),
+    Case("list-as-read",      "memory_list", {"path": "projects/homelab-iac/homelab-iac.md"},
+         expect_contains="K3s", category="navigation"),
+    Case("read-canonical",    "memory_read", {"path": "projects/homelab-iac/homelab-iac.md"},
+         expect_contains="bpg/proxmox", category="navigation"),
+    Case("read-gotchas",      "memory_read", {"path": "projects/homelab-iac/technical-gotchas.md"},
+         expect_contains="MUTUALLY EXCLUSIVE", category="navigation"),
+    Case("read-platform",     "memory_read", {"path": "projects/homelab-iac/platform-services.md"},
+         expect_contains="FluxCD", category="navigation"),
+    Case("read-session",      "memory_read", {"path": "projects/homelab-iac/sessions/2026-02-25.md"},
+         expect_contains="ServiceMonitor", category="navigation"),
+
+    # -----------------------------------------------------------------------
+    # Safety — all write-guard types + traversal variants
+    # -----------------------------------------------------------------------
+    Case("guard-sessions",        "memory_write",
+         {"path": "projects/homelab-iac/sessions/evil.md", "content": "x"},
+         expect_blocked=True, category="safety"),
+    Case("guard-metrics",         "memory_write",
+         {"path": "_metrics/bad.json", "content": "{}"},
+         expect_blocked=True, category="safety"),
+    Case("guard-archived",        "memory_write",
+         {"path": "archived/old.md", "content": "x"},
+         expect_blocked=True, category="safety"),
+    Case("guard-binary",          "memory_write",
+         {"path": "scratch/evil.exe", "content": "x"},
+         expect_blocked=True, category="safety"),
+    Case("guard-traversal-read",  "memory_read",
+         {"path": "../../etc/passwd"},
+         expect_blocked=True, category="safety"),
+    Case("guard-traversal-write", "memory_write",
+         {"path": "../../evil.md", "content": "x"},
+         expect_blocked=True, category="safety"),
+    Case("guard-traversal-deep",  "memory_read",
+         {"path": "projects/homelab-iac/../../.."},
+         expect_blocked=True, category="safety"),
+    Case("guard-sessions-nested", "memory_write",
+         {"path": "projects/homelab-iac/sessions/injected.md", "content": "x"},
+         expect_blocked=True, category="safety"),
+    Case("guard-metrics-nested",  "memory_write",
+         {"path": "projects/homelab-iac/_metrics/foo.json", "content": "{}"},
+         expect_blocked=True, category="safety"),
+
+    # -----------------------------------------------------------------------
+    # Search — precision queries against known fixture content
+    # -----------------------------------------------------------------------
+    Case("search-k3s",          "memory_search", {"query": "K3s"},
+         expect_contains="K3s", category="search"),
+    Case("search-no-match",     "memory_search", {"query": "xyzzy_not_a_real_term_12345"},
+         expect_contains="No matches", category="search"),
+    Case("search-scoped-room",  "memory_search",
+         {"query": "Proxmox", "path": "projects/homelab-iac"},
+         expect_contains="Proxmox", category="search"),
+    Case("search-flux",         "memory_search", {"query": "FluxCD"},
+         expect_contains="v2.7.5", category="search"),
+    Case("search-ip",           "memory_search", {"query": "192.168.2.201"},
+         expect_contains="MetalLB", category="search"),
+    Case("search-session-term", "memory_search", {"query": "n8n"},
+         expect_contains="Prometheus", category="search"),
+    Case("search-pg-gotcha",    "memory_search", {"query": "pg_basebackup"},
+         expect_contains="checkpoint", category="search"),
+    Case("search-invalid-path", "memory_search",
+         {"query": "K3s", "path": "no/such/path"},
+         expect_contains="not found", category="search"),
+
+    # -----------------------------------------------------------------------
+    # Write + Fidelity — round-trip: write → read → search → list → overwrite
+    # Order matters: fidelity cases depend on prior writes.
+    # -----------------------------------------------------------------------
+    Case("write-new",          "memory_write",
+         {"path": "scratch/bench-test.md", "content": "# Bench\n\ntest content\n"},
+         expect_lines=3, category="write"),
+    Case("read-written",       "memory_read", {"path": "scratch/bench-test.md"},
+         expect_contains="test content", category="fidelity"),
+    Case("search-written",     "memory_search", {"query": "test content"},
+         expect_contains="bench-test", category="fidelity"),
+    Case("list-written-dir",   "memory_list", {"path": "scratch"},
+         expect_contains="bench-test.md", category="fidelity"),
+    Case("write-overwrite",    "memory_write",
+         {"path": "scratch/bench-test.md", "content": "# Bench\n\noverwritten\n"},
+         expect_lines=3, category="write"),
+    Case("read-overwritten",   "memory_read", {"path": "scratch/bench-test.md"},
+         expect_contains="overwritten", category="fidelity"),
+    Case("write-nested",       "memory_write",
+         {"path": "scratch/deep/nested/file.md", "content": "# Nested\n\ndeep content\n"},
+         expect_lines=3, category="write"),
+    Case("read-nested",        "memory_read", {"path": "scratch/deep/nested/file.md"},
+         expect_contains="deep content", category="fidelity"),
+    Case("write-yaml",         "memory_write",
+         {"path": "scratch/config.yaml", "content": "key: value\nother: val\n"},
+         expect_lines=2, category="write"),
+
+    # -----------------------------------------------------------------------
+    # Edge — path handling, tool behaviour boundaries
+    # -----------------------------------------------------------------------
+    Case("list-whitespace-path", "memory_list", {"path": "   "},
+         expect_contains="homelab-iac", category="edge"),
+    Case("read-directory",       "memory_read", {"path": "projects/homelab-iac"},
+         expect_contains="memory_list", category="edge"),
+    Case("read-nonexistent",     "memory_read",
+         {"path": "projects/homelab-iac/does-not-exist.md"},
+         expect_contains="not found", category="edge"),
+    Case("list-nonexistent",     "memory_list", {"path": "projects/no-such-room"},
+         expect_contains="not found", category="edge"),
+    Case("search-regex-version", "memory_search",
+         {"query": r"v[0-9]+\.[0-9]+\.[0-9]+"},
+         expect_contains="v2.7.5", category="edge"),
+    Case("search-scoped-file",   "memory_search",
+         {"query": "Grafana", "path": "projects/homelab-iac/platform-services.md"},
+         expect_contains="Grafana", category="edge"),
+]
+
+
+# ---------------------------------------------------------------------------
+# Harness (do not modify below this line)
+# ---------------------------------------------------------------------------
+
+@dataclass
+class Result:
+    case: Case
+    passed: bool
+    latency_ms: float
+    actual: str | None = None
+    error: str | None = None
+
+
+async def run_case(session: ClientSession, case: Case) -> Result:
+    t0 = time.perf_counter()
+    try:
+        resp = await session.call_tool(case.tool, case.args)
+        elapsed = (time.perf_counter() - t0) * 1000
+
+        text = resp.content[0].text if resp.content else ""
+        is_error = bool(resp.isError)
+
+        if case.expect_blocked:
+            return Result(case, passed=is_error, latency_ms=elapsed,
+                          actual=text[:200],
+                          error=None if is_error else "expected block, got success")
+
+        if case.expect_contains is not None:
+            passed = case.expect_contains in text
+        elif case.expect_lines is not None:
+            passed = f"{case.expect_lines} lines" in text
+        elif case.expect_hit_count is not None:
+            # Count "--" separators in rg output as hit blocks
+            hit_blocks = text.count("\n--\n") + (1 if text.strip() else 0)
+            passed = hit_blocks == case.expect_hit_count
+        else:
+            passed = True
+
+        return Result(case, passed=passed, latency_ms=elapsed, actual=text[:200])
+
+    except Exception as e:
+        elapsed = (time.perf_counter() - t0) * 1000
+        is_mcp_error = "not permitted" in str(e) or "traversal" in str(e).lower() or "blocked" in str(e).lower()
+        if case.expect_blocked and is_mcp_error:
+            return Result(case, passed=True, latency_ms=elapsed, error=str(e))
+        return Result(case, passed=False, latency_ms=elapsed, error=str(e))
+
+
+def print_report(results: list[Result]) -> None:
+    from collections import defaultdict
+    cats: dict[str, list[Result]] = defaultdict(list)
+    for r in results:
+        cats[r.case.category].append(r)
+
+    print("\n" + "=" * 60)
+    print("  LOCUS MCP BENCHMARK REPORT")
+    print("=" * 60)
+
+    all_latencies = [r.latency_ms for r in results]
+    passed = sum(1 for r in results if r.passed)
+
+    print(f"\nOverall: {passed}/{len(results)} passed "
+          f"({100*passed//len(results)}%)")
+    print(f"Latency: avg={sum(all_latencies)/len(all_latencies):.1f}ms  "
+          f"p95={sorted(all_latencies)[int(0.95*len(all_latencies))]:.1f}ms  "
+          f"max={max(all_latencies):.1f}ms")
+
+    print("\nBy category:")
+    for cat, rs in sorted(cats.items()):
+        p = sum(1 for r in rs if r.passed)
+        lats = [r.latency_ms for r in rs]
+        print(f"  {cat:<14} {p}/{len(rs)}  avg {sum(lats)/len(lats):.1f}ms")
+
+    failures = [r for r in results if not r.passed]
+    if failures:
+        print(f"\nFailures ({len(failures)}):")
+        for r in failures:
+            print(f"  [{r.case.id}] {r.error or ''}")
+            if r.actual:
+                print(f"    got: {r.actual[:100]!r}")
+
+    print()
+
+
+async def run(palace: Path, debug: bool) -> None:
+    params = StdioServerParameters(
+        command="uv",
+        args=["run", "-m", "locus.mcp.main", "--palace", str(palace)],
+        env=None,
+    )
+
+    async with stdio_client(params) as (read, write):
+        async with ClientSession(read, write) as session:
+            await session.initialize()
+
+            results: list[Result] = []
+            for case in CASES:
+                r = await run_case(session, case)
+                status = "PASS" if r.passed else "FAIL"
+                if debug or not r.passed:
+                    print(f"  {status} [{case.id}] {r.latency_ms:.1f}ms")
+                    if not r.passed:
+                        print(f"       {r.error or r.actual!r}")
+                else:
+                    print(f"  {status} [{case.id}]")
+                results.append(r)
+
+            print_report(results)
+
+            # Cleanup scratch
+            import shutil
+            scratch = palace / "scratch"
+            if scratch.exists():
+                shutil.rmtree(scratch)
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--palace", default=str(PALACE))
+    parser.add_argument("--debug", action="store_true")
+    args = parser.parse_args()
+    asyncio.run(run(Path(args.palace), args.debug))
+
+
+if __name__ == "__main__":
+    main()

@@ -116,7 +116,7 @@ The `locus-mcp` command exposes four tools over the Model Context Protocol (stdi
 ```
 
 The MCP layer is recommended for MCP-capable clients. The skills remain the interface for Claude Code.
-See `spec/mcp-server.md` for full architecture details.
+See `spec/mcp-server.md` for full architecture details and `docs/architecture.md` for diagrams.
 
 ## Structure
 
@@ -127,9 +127,18 @@ skills/
   claude/       SKILL.md files for Claude Code + Agent SDK
   codex/        Codex-compatible skill files
   gemini/       Gemini CLI + GitHub Actions skill files
-docs/           Onboarding guide and reference docs
+docs/
+  architecture.md   Mermaid diagrams: palace structure, MCP server, agent interfaces, lifecycle
+  benchmarks.md     Benchmark methodology, results, and charts
+  img/              Generated SVG charts
+  onboarding.md     Step-by-step agent onboarding guide
+scripts/
+  bench-mcp.py      40-case MCP integration benchmark (all 4 tools, safety, fidelity)
+  bench-compare.py  Palace vs flat recall comparison (lines loaded, tool calls, recall)
+  generate-charts.py  Regenerate docs/img/ charts from benchmark data
+  try-mcp.py        Quick MCP smoke test
 tests/
-  fixtures/     Benchmark fixtures: flat vs palace (same facts, two structures)
+  fixtures/     Benchmark fixtures: palace + flat + flat-palace (same facts, three structures)
   run-benchmark.md  15-query benchmark procedure
   results/      Benchmark run outputs
 locus/agent/    Python Agent SDK entrypoint (CLI + metrics collector)
@@ -141,18 +150,21 @@ locus/mcp/      MCP server (locus-mcp CLI)
 ## Benchmarking
 
 Validates the core hypothesis: palace navigation loads less context than flat for
-specific queries. See `tests/fixtures/README.md` for the numbers.
+specific queries. Two benchmark approaches:
 
+**MCP integration benchmark** — 40 test cases across all 4 tools, safety guards, and fidelity:
 ```sh
-# Run a benchmark query against both fixtures
-locus --palace tests/fixtures/palace --task "What is the K3s API server endpoint?" \
-      --metrics-file tests/results/palace-A1.json
-
-locus --palace tests/fixtures/flat --task "What is the K3s API server endpoint?" \
-      --metrics-file tests/results/flat-A1.json
+uv run scripts/bench-mcp.py
+# Overall: 40/40 · avg 6.8ms · p95 15.8ms
 ```
 
-See `tests/run-benchmark.md` for the full 15-query set and results template.
+**Palace vs flat recall comparison** — 9 recall scenarios, measures lines loaded and answer recall:
+```sh
+uv run scripts/bench-compare.py
+# Palace: 822 lines / 9 found  ·  Flat: 1719 lines / 8 found  ·  −52% avg
+```
+
+See `docs/benchmarks.md` for charts and full results, and `tests/fixtures/README.md` for fixture details.
 
 ## Roadmap
 
