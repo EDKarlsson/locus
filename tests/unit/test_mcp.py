@@ -7,7 +7,13 @@ from pathlib import Path
 
 import pytest
 
-from locus.mcp.palace import assert_writable, find_palace, safe_resolve
+from locus.mcp.palace import (
+    _slug_from_path,
+    assert_writable,
+    find_auto_memory,
+    find_palace,
+    safe_resolve,
+)
 from locus.mcp import server as mcp_server
 
 
@@ -324,3 +330,141 @@ class TestSseAllowedHosts:
         assert "host-b" in hosts
         # empty string not included
         assert "" not in hosts
+
+
+# ---------------------------------------------------------------------------
+# palace.py — auto-memory bridge
+# ---------------------------------------------------------------------------
+
+class TestFindAutoMemory:
+    def test_slug_derivation(self) -> None:
+        slug = _slug_from_path(Path("/home/user/proj"))
+        assert slug == "-home-user-proj"
+
+    def test_slug_derivation_nested(self) -> None:
+        slug = _slug_from_path(Path("/home/dank/git/valhalla/locus"))
+        assert slug == "-home-dank-git-valhalla-locus"
+
+    def test_auto_memory_found(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        fake_home = tmp_path / "home"
+        fake_cwd = tmp_path / "projects" / "myrepo"
+        fake_cwd.mkdir(parents=True)
+
+        slug = _slug_from_path(fake_cwd)
+        auto_mem = fake_home / ".claude" / "projects" / slug / "memory"
+        auto_mem.mkdir(parents=True)
+
+        monkeypatch.setenv("HOME", str(fake_home))
+        monkeypatch.delenv("LOCUS_PALACE", raising=False)
+        monkeypatch.chdir(fake_cwd)
+
+        result = find_palace()
+        assert result == auto_mem.resolve()
+
+    def test_auto_memory_missing_falls_back_to_home_locus(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        fake_home = tmp_path / "home"
+        fake_home.mkdir()
+        fake_cwd = tmp_path / "projects" / "myrepo"
+        fake_cwd.mkdir(parents=True)
+
+        # No auto-memory directory created → should fall back to ~/.locus bootstrap
+        monkeypatch.setenv("HOME", str(fake_home))
+        monkeypatch.delenv("LOCUS_PALACE", raising=False)
+        monkeypatch.chdir(fake_cwd)
+
+        result = find_palace()
+        assert result == (fake_home / ".locus").resolve()
+
+    def test_auto_memory_env_override(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        # LOCUS_PALACE takes priority — auto-memory should be skipped
+        palace_dir = tmp_path / "my-palace"
+        palace_dir.mkdir()
+
+        monkeypatch.setenv("LOCUS_PALACE", str(palace_dir))
+        result = find_palace()
+        assert result == palace_dir.resolve()
+
+    def test_find_auto_memory_returns_none_when_absent(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("HOME", str(tmp_path))
+        result = find_auto_memory(cwd=tmp_path / "some" / "project")
+        assert result is None
+
+    def test_cwd_locus_precedes_auto_memory(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        fake_home = tmp_path / "home"
+        fake_cwd = tmp_path / "projects" / "myrepo"
+        fake_cwd.mkdir(parents=True)
+
+        # .locus/ in CWD takes priority over auto-memory
+        cwd_locus = fake_cwd / ".locus"
+        cwd_locus.mkdir()
+
+        # Also create the auto-memory directory — should NOT be selected
+        slug = _slug_from_path(fake_cwd)
+        auto_mem = fake_home / ".claude" / "projects" / slug / "memory"
+        auto_mem.mkdir(parents=True)
+
+        monkeypatch.setenv("HOME", str(fake_home))
+        monkeypatch.delenv("LOCUS_PALACE", raising=False)
+        monkeypatch.chdir(fake_cwd)
+
+        result = find_palace()
+        assert result == cwd_locus.resolve()
+
+
+# ---------------------------------------------------------------------------
+# memory_batch
+# ---------------------------------------------------------------------------
+
+class TestMemoryBatch:
+    def test_reads_multiple_files(self) -> None:
+        result = mcp_server.memory_batch(["INDEX.md", "global/networking/networking.md"])
+        assert "## INDEX.md" in result
+        assert "## global/networking/networking.md" in result
+        assert "Index" in result
+        assert "WireGuard" in result
+
+    def test_sections_separated_by_divider(self) -> None:
+        result = mcp_server.memory_batch(["INDEX.md", "global/networking/networking.md"])
+        assert "---" in result
+
+    def test_missing_file_inline(self) -> None:
+        result = mcp_server.memory_batch(["INDEX.md", "does/not/exist.md"])
+        assert "Index" in result
+        assert "not found" in result.lower()
+
+    def test_directory_inline(self) -> None:
+        result = mcp_server.memory_batch(["INDEX.md", "global/networking"])
+        assert "Index" in result
+        assert "directory" in result.lower()
+
+    def test_traversal_inline(self) -> None:
+        result = mcp_server.memory_batch(["../../etc/passwd"])
+        assert "escapes" in result.lower() or "path error" in result.lower()
+
+    def test_limit_enforced(self) -> None:
+        paths = [f"file{i}.md" for i in range(21)]
+        with pytest.raises(ValueError, match="20"):
+            mcp_server.memory_batch(paths)
+
+    def test_empty_list_returns_empty_string(self) -> None:
+        result = mcp_server.memory_batch([])
+        assert result == ""
+
+    def test_newline_in_path_sanitized_in_header(self) -> None:
+        # Embedded newlines in a path must not produce a standalone fake section header.
+        # After sanitization "\n" → " ", the output contains a single line:
+        #   "## INDEX.md  ## INJECTED"
+        # — not a standalone "## INJECTED" on its own line.
+        result = mcp_server.memory_batch(["INDEX.md\n\n## INJECTED"])
+        lines = result.splitlines()
+        standalone_headers = [l for l in lines if l.startswith("## ")]
+        # Exactly one section header — not two
+        assert len(standalone_headers) == 1
+        # Newlines collapsed to spaces — whole thing on a single header line
+        assert standalone_headers[0] == "## INDEX.md  ## INJECTED"

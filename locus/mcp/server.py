@@ -252,6 +252,7 @@ def _search_rg(query: str, search_root: Path, palace_root: Path) -> str:
 _MAX_READ_BYTES = 500_000   # 500 KB — palace files should be tiny
 _MAX_WRITE_BYTES = 500_000  # 500 KB — guards against runaway writes
 _MAX_QUERY_LEN = 200
+_MAX_BATCH_PATHS = 20
 
 
 def _read_bounded(path: Path, rel: str) -> str:
@@ -305,6 +306,53 @@ def _search_python(query: str, search_root: Path, palace_root: Path) -> str:
     if not results:
         return f"No matches for '{query}'"
     return "\n".join(results[:200])
+
+
+# ---------------------------------------------------------------------------
+# memory_batch
+# ---------------------------------------------------------------------------
+
+@mcp.tool()
+def memory_batch(paths: list[str]) -> str:
+    """Read multiple palace files in a single call.
+
+    ``paths`` is a list of paths relative to the palace root (maximum
+    ``_MAX_BATCH_PATHS`` entries).  Returns all files joined by ``\\n---\\n``,
+    each section headed by ``## <path>``.
+
+    Missing files, directories, and path-traversal violations are noted
+    inline and do not raise exceptions, so partial results are always
+    returned for valid calls.  Raises ``ValueError`` only for invalid
+    arguments (e.g. more than ``_MAX_BATCH_PATHS`` paths).
+
+    Returns an empty string for an empty ``paths`` list.
+    """
+    if len(paths) > _MAX_BATCH_PATHS:
+        raise ValueError(
+            f"Too many paths ({len(paths)}); limit is {_MAX_BATCH_PATHS}"
+        )
+
+    root = _root()
+    log.debug("memory_batch: %d paths", len(paths))
+
+    def _process_one(path: str) -> str:
+        # Sanitize path for display — strip newlines to prevent Markdown injection.
+        display = path.replace("\n", " ").replace("\r", " ")
+        header = f"## {display}"
+        try:
+            target = safe_resolve(root, path)
+        except ValueError as exc:
+            return f"{header}\n\n_Path error: {exc}_"
+
+        if not target.exists():
+            log.debug("memory_batch: not found: %s", path)
+            return f"{header}\n\n_File not found: {display}_"
+        if target.is_dir():
+            log.debug("memory_batch: path is directory: %s", path)
+            return f"{header}\n\n_'{display}' is a directory — use memory_list to browse it._"
+        return f"{header}\n\n{_read_bounded(target, path)}"
+
+    return "\n\n---\n\n".join(_process_one(p) for p in paths)
 
 
 # ---------------------------------------------------------------------------
