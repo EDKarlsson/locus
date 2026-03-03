@@ -40,4 +40,4 @@ jobs:
 
       - name: Verify prompt file is non-empty
         run: |
-          wc -l .github/prompts/copilot-security-audit.md
+          test -s .github/prompts/copilot-security-audit.md || { echo "Prompt file is empty"; exit 1; }

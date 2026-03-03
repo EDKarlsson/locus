@@ -45,6 +45,11 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           additional_permissions: "actions:read"
 
+      - name: Write PR number for downstream workflow
+        if: inputs.pr_number != ''
+        run: |
+          printf '%s\n' "${{ inputs.pr_number }}" > docs/audits/pr_number.txt
+
       - name: Upload Claude audit artifacts
         if: always()
         uses: actions/upload-artifact@v4
@@ -55,5 +60,6 @@ jobs:
             docs/audits/claude-security-pr-comment.md
             docs/audits/artifacts/claude-bandit.json
             docs/audits/artifacts/claude-pip-audit.txt
+            docs/audits/pr_number.txt
           if-no-files-found: ignore
           retention-days: 14

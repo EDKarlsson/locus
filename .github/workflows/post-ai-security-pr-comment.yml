@@ -12,11 +12,9 @@ permissions:
 
 jobs:
   post-security-comment:
-    # Only runs when the upstream audit was dispatched with a pr_number input
-    # and completed successfully.
-    if: >
-      github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.inputs.pr_number != ''
+    # Only run when the upstream audit completed successfully.
+    # Whether to actually post is determined by pr_number.txt in the artifact.
+    if: github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     steps:
       - name: Download Claude audit artifact
@@ -39,6 +37,18 @@ jobs:
           gh api "repos/${REPO}/actions/artifacts/${artifact_id}/zip" > /tmp/ai-audit/claude-security-audit.zip
           unzip -q /tmp/ai-audit/claude-security-audit.zip -d /tmp/ai-audit/unpacked
 
+          # Read the PR number written by the upstream workflow (absent if no pr_number was given)
+          pr_number_file="/tmp/ai-audit/unpacked/pr_number.txt"
+          if [ ! -f "${pr_number_file}" ] || [ ! -s "${pr_number_file}" ]; then
+            echo "found=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          pr_number="$(cat "${pr_number_file}" | tr -d '[:space:]')"
+          if [ -z "${pr_number}" ]; then
+            echo "found=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
           comment_file="$(find /tmp/ai-audit/unpacked -maxdepth 1 -type f -name '*-security-pr-comment.md' | sort | head -n1)"
           if [ -z "${comment_file}" ]; then
             echo "found=false" >> "$GITHUB_OUTPUT"
@@ -46,17 +56,18 @@ jobs:
           fi
 
           echo "found=true" >> "$GITHUB_OUTPUT"
+          printf 'pr_number=%s\n' "${pr_number}" >> "$GITHUB_OUTPUT"
           printf 'comment_file=%s\n' "${comment_file}" >> "$GITHUB_OUTPUT"
 
       - name: Post PR comment
         if: steps.artifact.outputs.found == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
-          PR_NUMBER: ${{ github.event.workflow_run.inputs.pr_number }}
+          PR_NUMBER: ${{ steps.artifact.outputs.pr_number }}
           COMMENT_FILE: ${{ steps.artifact.outputs.comment_file }}
         run: |
           gh pr comment "${PR_NUMBER}" --body-file "${COMMENT_FILE}"
 
       - name: No comment file found
         if: steps.artifact.outputs.found != 'true'
-        run: echo "No *-security-pr-comment.md file found in Claude audit artifact."
+        run: echo "No *-security-pr-comment.md or pr_number.txt found in Claude audit artifact — skipping PR comment."

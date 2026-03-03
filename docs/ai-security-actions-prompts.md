@@ -69,10 +69,12 @@ This repo now includes a follow-up workflow:
 .github/workflows/post-ai-security-pr-comment.yml
 ```
 
-It triggers after `Claude Security Audit` completes successfully when a
-`pr_number` input was provided at dispatch time, downloads the
-`claude-security-audit` artifact, and posts `*-security-pr-comment.md` to
-the specified PR automatically.
+It triggers after `Claude Security Audit` completes successfully. The PR
+number is passed via an artifact file (`pr_number.txt`) written by the
+upstream workflow — this is the reliable cross-workflow data-passing pattern
+since `workflow_run` events do not expose the dispatch inputs of the
+triggering workflow. When `pr_number` is provided at dispatch time,
+`*-security-pr-comment.md` is posted to the specified PR automatically.
 
 ## Copilot Example
 

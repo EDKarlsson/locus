@@ -138,8 +138,9 @@ def write_reports(result: AuditResult, palace_root: Path) -> tuple[Path, Path]:
     metrics_dir = palace_root / "_metrics"
     metrics_dir.mkdir(exist_ok=True)
 
-    # Produce audit-YYYYMMDDTHHMMSSZ per spec/health-report-format.md
-    ts = result.audited_at[:19].replace(":", "").replace("-", "") + "Z"
+    # Produce audit-YYYY-MM-DDTHHMMSSZ per spec/health-report-format.md
+    # Keep date dashes, remove time colons only.
+    ts = result.audited_at[:19].replace(":", "") + "Z"
     stem = f"audit-{ts}"
 
     md_path = metrics_dir / f"{stem}.md"

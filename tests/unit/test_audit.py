@@ -419,3 +419,19 @@ class TestRunAudit:
         result = run_audit(tmp_path)
         assert result.has_metrics is True
         assert result.summary.metrics_runs_analysed == 1
+
+    def test_unstructured_dir_emits_action_item(self, tmp_path):
+        """Directories with .md files but no <dirname>.md should produce an action item."""
+        make_palace(tmp_path, {"projects/api": 50})
+        # Create an orphan directory: has .md files but no api-orphan.md main file
+        orphan = tmp_path / "projects" / "api-orphan"
+        orphan.mkdir(parents=True)
+        (orphan / "some-notes.md").write_text("notes\n")
+        result = run_audit(tmp_path)
+        assert result.summary.unstructured_dirs == 1
+        unstructured_actions = [
+            item for item in result.action_items
+            if item.get("room") == "(unstructured)"
+        ]
+        assert len(unstructured_actions) == 1
+        assert "main file" in unstructured_actions[0]["action"]
