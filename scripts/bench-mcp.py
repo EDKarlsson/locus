@@ -2,10 +2,11 @@
 bench-mcp.py — Live integration benchmark for locus-mcp server.
 
 Spawns the MCP server via stdio and runs structured test cases across
-all four tools. Measures latency, correctness, safety, and search precision.
+all five tools. Measures latency, correctness, safety, and search precision.
 
 Usage:
     uv run scripts/bench-mcp.py [--palace PATH] [--debug]
+    uv run scripts/bench-mcp.py --version 0.8.0   # saves to docs/bench/v0.8.0.json
 """
 
 import argparse
@@ -160,6 +161,27 @@ CASES: list[Case] = [
     Case("search-scoped-file",   "memory_search",
          {"query": "Grafana", "path": "projects/homelab-iac/platform-services.md"},
          expect_contains="Grafana", category="edge"),
+
+    # -----------------------------------------------------------------------
+    # Batch — memory_batch: multi-file reads, inline errors, safety
+    # -----------------------------------------------------------------------
+    Case("batch-two-files",      "memory_batch",
+         {"paths": ["INDEX.md", "projects/homelab-iac/homelab-iac.md"]},
+         expect_contains="K3s", category="batch"),
+    Case("batch-three-files",    "memory_batch",
+         {"paths": ["INDEX.md",
+                    "projects/homelab-iac/technical-gotchas.md",
+                    "projects/homelab-iac/platform-services.md"]},
+         expect_contains="MUTUALLY EXCLUSIVE", category="batch"),
+    Case("batch-missing-inline", "memory_batch",
+         {"paths": ["INDEX.md", "no/such/file.md"]},
+         expect_contains="not found", category="batch"),
+    Case("batch-dir-inline",     "memory_batch",
+         {"paths": ["projects/homelab-iac"]},
+         expect_contains="directory", category="batch"),
+    Case("batch-traversal-inline", "memory_batch",
+         {"paths": ["../../etc/passwd"]},
+         expect_contains="Path error", category="batch"),
 ]
 
 
@@ -247,14 +269,14 @@ def print_report(results: list[Result]) -> None:
     print()
 
 
-def build_report(results: list[Result]) -> dict:
+def build_report(results: list[Result], version: str | None = None) -> dict:
     from collections import defaultdict
     cats: dict[str, list[Result]] = defaultdict(list)
     for r in results:
         cats[r.case.category].append(r)
     all_lats = sorted(r.latency_ms for r in results)
     passed = sum(1 for r in results if r.passed)
-    return {
+    report: dict = {
         "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         "overall": {
             "passed": passed,
@@ -272,9 +294,13 @@ def build_report(results: list[Result]) -> dict:
             for cat, rs in sorted(cats.items())
         },
     }
+    if version:
+        report["version"] = version
+    return report
 
 
-async def run(palace: Path, debug: bool, json_out: Path | None = None) -> None:
+async def run(palace: Path, debug: bool, json_out: Path | None = None,
+              version: str | None = None) -> None:
     params = StdioServerParameters(
         command="uv",
         args=["run", "-m", "locus.mcp.main", "--palace", str(palace)],
@@ -301,7 +327,7 @@ async def run(palace: Path, debug: bool, json_out: Path | None = None) -> None:
 
             if json_out:
                 json_out.parent.mkdir(parents=True, exist_ok=True)
-                json_out.write_text(json.dumps(build_report(results), indent=2))
+                json_out.write_text(json.dumps(build_report(results, version), indent=2))
                 print(f"Results written to {json_out}")
 
             # Cleanup scratch
@@ -311,15 +337,26 @@ async def run(palace: Path, debug: bool, json_out: Path | None = None) -> None:
                 shutil.rmtree(scratch)
 
 
+BENCH_DIR = Path(__file__).parent.parent / "docs" / "bench"
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--palace", default=str(PALACE))
     parser.add_argument("--debug", action="store_true")
+    parser.add_argument("--version", metavar="X.Y.Z",
+                        help="Tag results with this version and save to docs/bench/vX.Y.Z.json")
     parser.add_argument("--json-out", metavar="PATH",
-                        help="Write results JSON to this file (for use with generate-charts.py)")
+                        help="Write results JSON to this path (overrides --version default)")
     args = parser.parse_args()
-    asyncio.run(run(Path(args.palace), args.debug,
-                    Path(args.json_out) if args.json_out else None))
+
+    json_out: Path | None = None
+    if args.json_out:
+        json_out = Path(args.json_out)
+    elif args.version:
+        json_out = BENCH_DIR / f"v{args.version}.json"
+
+    asyncio.run(run(Path(args.palace), args.debug, json_out, args.version))
 
 
 if __name__ == "__main__":

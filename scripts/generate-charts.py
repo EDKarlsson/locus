@@ -9,13 +9,17 @@ Usage:
     uv run scripts/generate-charts.py
 
     # From live bench runs:
-    uv run scripts/bench-mcp.py     --json-out /tmp/mcp.json
+    uv run scripts/bench-mcp.py     --version 0.8.0
     uv run scripts/bench-compare.py --json-out /tmp/compare.json
     uv run scripts/generate-charts.py --mcp-run /tmp/mcp.json --compare-run /tmp/compare.json
+
+    # Reads versioned history from docs/bench/ automatically:
+    uv run scripts/generate-charts.py
 
 Outputs:
   docs/img/lines-comparison.svg    — palace vs flat lines loaded per scenario
   docs/img/latency-by-category.svg — MCP tool latency by category
+  docs/img/latency-trend.svg       — avg/p95 latency over release history
 """
 
 from __future__ import annotations
@@ -211,6 +215,73 @@ def chart_latency(data: dict, out: Path) -> None:
     print(f"  wrote {out.relative_to(Path.cwd())}")
 
 
+BENCH_DIR = Path(__file__).parent.parent / "docs" / "bench"
+
+
+# ---------------------------------------------------------------------------
+# Historical trend data
+# ---------------------------------------------------------------------------
+
+def load_bench_history(bench_dir: Path) -> list[dict]:
+    """Read all v*.json files from bench_dir, sorted by version."""
+    files = sorted(bench_dir.glob("v*.json"))
+    history = []
+    for f in files:
+        try:
+            data = json.loads(f.read_text())
+            if "version" not in data:
+                data["version"] = f.stem[1:]  # strip leading 'v'
+            history.append(data)
+        except Exception:
+            pass
+    return history
+
+
+def chart_latency_trend(history: list[dict], out: Path) -> None:
+    """Plot avg_ms and p95_ms over release versions."""
+    if len(history) < 2:
+        print(f"  skipping latency-trend.svg (need ≥2 data points, have {len(history)})")
+        return
+
+    versions = [h["version"] for h in history]
+    avg_ms   = [h["overall"]["avg_ms"] for h in history]
+    p95_ms   = [h["overall"]["p95_ms"] for h in history]
+    totals   = [h["overall"]["total"]  for h in history]
+    passed   = [h["overall"]["passed"] for h in history]
+
+    x = np.arange(len(versions))
+
+    fig, ax = plt.subplots(figsize=(8, 4))
+    fig.subplots_adjust(left=0.12, right=0.97, top=0.88, bottom=0.18)
+
+    ax.plot(x, avg_ms, color=PALACE_COLOR, marker="o", linewidth=2,
+            markersize=6, label="avg latency", zorder=3)
+    ax.plot(x, p95_ms, color=FLAT_COLOR,   marker="s", linewidth=2,
+            markersize=6, label="p95 latency", zorder=3, linestyle="--")
+
+    for i, (avg, p95, tot, pas) in enumerate(zip(avg_ms, p95_ms, totals, passed)):
+        ax.text(i, avg - 1.2, f"{avg}", ha="center", va="top",
+                fontsize=8.5, color=PALACE_COLOR, fontweight="bold")
+        pct = 100 * pas // tot
+        ax.text(i, -2.5, f"{pas}/{tot} ({pct}%)",
+                ha="center", va="top", fontsize=8, color=TEXT_COLOR,
+                transform=ax.get_xaxis_transform())
+
+    ax.set_xticks(x)
+    ax.set_xticklabels([f"v{v}" for v in versions], fontsize=10)
+    ax.set_ylabel("Round-trip latency (ms)")
+    ax.set_title("MCP Benchmark Latency Trend")
+    ax.yaxis.grid(True, zorder=0)
+    ax.set_axisbelow(True)
+    ax.set_ylim(0, max(p95_ms) * 1.25)
+    ax.legend(loc="upper right", framealpha=0.9, fontsize=10)
+
+    out.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(out, format="svg", bbox_inches="tight")
+    plt.close(fig)
+    print(f"  wrote {out.relative_to(Path.cwd())}")
+
+
 # ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
@@ -222,6 +293,8 @@ def main() -> None:
                         help="bench-mcp.py --json-out file to use for latency chart")
     parser.add_argument("--compare-run", metavar="PATH",
                         help="bench-compare.py --json-out file to use for lines chart")
+    parser.add_argument("--bench-dir",   metavar="DIR", default=str(BENCH_DIR),
+                        help="Directory of versioned bench JSON files (default: docs/bench/)")
     parser.add_argument("--out-dir",     metavar="DIR", default=str(OUT),
                         help="Output directory for SVG files (default: docs/img/)")
     args = parser.parse_args()
@@ -229,12 +302,14 @@ def main() -> None:
     out_dir = Path(args.out_dir)
     compare_data = load_compare_data(Path(args.compare_run) if args.compare_run else None)
     mcp_data     = load_mcp_data(Path(args.mcp_run)     if args.mcp_run     else None)
+    history      = load_bench_history(Path(args.bench_dir))
 
     source = "live data" if (args.mcp_run or args.compare_run) else "hardcoded baseline"
     print(f"Generating charts from {source}...")
 
     chart_lines_comparison(compare_data, out_dir / "lines-comparison.svg")
     chart_latency(mcp_data,              out_dir / "latency-by-category.svg")
+    chart_latency_trend(history,         out_dir / "latency-trend.svg")
     print("Done.")
 
 
