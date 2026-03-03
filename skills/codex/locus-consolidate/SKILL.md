@@ -13,7 +13,7 @@ description: >
 Merges accumulated session logs into canonical room files, enforces size limits,
 and archives processed logs. Run per room.
 
-**Arguments:** room path relative to palace root (e.g. `projects/homelab-iac`).
+**Arguments:** room path relative to palace root (e.g. `projects/my-project`).
 If omitted, auto-detect rooms needing consolidation (Step 1b).
 
 ---
