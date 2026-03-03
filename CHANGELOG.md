@@ -1,5 +1,72 @@
 # Changelog
 
+## v0.7.1 — 2026-03-03
+
+### Fix: allowed hosts for SSE reverse-proxy deployments
+
+FastMCP 1.26.0 enables DNS rebinding protection by default, restricting allowed `Host`
+headers to loopback (`127.0.0.1:*`, `localhost:*`, `[::1]:*`). Requests from Tailscale
+or Kubernetes ingress (e.g. `locus.oryx-tegu.ts.net`, `locus.locus.svc.cluster.local`)
+were rejected with `421 Misdirected Request`.
+
+- `fix(mcp)`: Added `LOCUS_ALLOWED_HOSTS` env var — comma-separated hostnames (using
+  FastMCP `:*` port wildcard) appended to the loopback defaults before SSE server start
+- `fix(mcp)`: Bumped `mcp>=1.26.0` floor (`TransportSecuritySettings` was added in 1.26.0)
+- +3 unit tests (`TestSseAllowedHosts`) — 186 tests total
+
+---
+
+## v0.7.0 — 2026-03-03
+
+### SSE transport + Docker image for network deployments
+
+Exposes `locus-mcp` as a network service (SSE transport) suitable for homelab K8s
+clusters, n8n/Windmill automation, and any environment where multiple clients need a
+shared palace over HTTP.
+
+**CLI change**
+
+- Added `--transport {stdio,sse}` flag to `locus-mcp`. Default is `stdio` (unchanged).
+  SSE mode starts a uvicorn server instead of reading from stdin.
+
+**Auth**
+
+- `BearerAuthMiddleware` — raw ASGI middleware (not `BaseHTTPMiddleware` which buffers
+  response bodies and breaks long-lived SSE streams). Set `LOCUS_API_KEY` to enable.
+  Responses include `WWW-Authenticate: Bearer realm="locus-mcp"` on 401.
+
+**Environment variables (SSE mode)**
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `FASTMCP_HOST` | `127.0.0.1` | Bind address — set to `0.0.0.0` for container deployments |
+| `FASTMCP_PORT` | `8000` | Bind port |
+| `LOCUS_API_KEY` | unset | Bearer token for auth (recommended) |
+
+**Dockerfile**
+
+```dockerfile
+FROM python:3.12-slim
+ARG LOCUS_MCP_VERSION="0.7.1"
+RUN pip install --no-cache-dir "locus-mcp==${LOCUS_MCP_VERSION}"
+ENTRYPOINT ["locus-mcp"]
+```
+
+Image published to `ghcr.io/edkarlsson/locus-mcp:0.7.1`.
+
+**Dependencies**
+
+- `uvicorn>=0.30` promoted from optional to core dependency
+
+**Security fixes (from code review)**
+
+- `fix(mcp/server)`: rg argument injection — added `"--"` separator before user query
+  in `memory_search` subprocess args (prevents query starting with `--` from injecting
+  ripgrep flags)
+- `fix(mcp/main)`: `secrets.compare_digest()` for constant-time token comparison
+
+---
+
 ## v0.6.2 — 2026-03-03
 
 ### Auto-bootstrap palace on first start

@@ -9,12 +9,31 @@ client (Claude Desktop, Cursor, Zed) can consume without needing the skill files
 
 ## Transport
 
-**stdio** — the standard for locally-run MCP servers. The server is launched as
-a subprocess; the client communicates over stdin/stdout. No network port is
-opened.
+**stdio** (default) — the standard for locally-run MCP servers. The server is launched
+as a subprocess; the client communicates over stdin/stdout. No network port is opened.
 
-HTTP (SSE / Streamable HTTP) is not implemented in v0.5. It can be added later
-for multi-client or remote scenarios.
+**SSE** (`--transport sse`, added in v0.7.0) — HTTP server-sent events transport for
+network deployments (homelab K8s, n8n, Windmill, multi-client scenarios). Runs via
+uvicorn. Auth via `LOCUS_API_KEY` Bearer token (recommended).
+
+```
+# Local (default)
+locus-mcp --palace ~/.locus
+
+# Network service
+FASTMCP_HOST=0.0.0.0 FASTMCP_PORT=8000 LOCUS_API_KEY=<token> \
+  locus-mcp --transport sse --palace /palace
+```
+
+**DNS rebinding protection**: FastMCP 1.26.0+ restricts allowed `Host` headers to
+loopback by default. For reverse-proxy deployments (Tailscale, K8s ingress), set
+`LOCUS_ALLOWED_HOSTS` to a comma-separated list of extra hostnames:
+
+```
+LOCUS_ALLOWED_HOSTS=myhost.ts.net,myservice.svc.cluster.local:*
+```
+
+The `:*` suffix is FastMCP's wildcard for any port on that hostname.
 
 ---
 
