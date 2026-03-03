@@ -10,6 +10,19 @@ If ``--palace`` is omitted the server resolves the palace root via
 For SSE transport, set ``FASTMCP_HOST`` / ``FASTMCP_PORT`` env vars to
 control the bind address (defaults: 127.0.0.1:8000).  If ``LOCUS_API_KEY``
 is set, every request must carry ``Authorization: Bearer <key>``.
+
+Environment variables (SSE transport)
+--------------------------------------
+FASTMCP_HOST          Bind address (default: 127.0.0.1)
+FASTMCP_PORT          Bind port (default: 8000)
+LOCUS_API_KEY         Bearer token required on all requests (recommended)
+LOCUS_ALLOWED_HOSTS   Comma-separated extra hostnames allowed in the HTTP
+                      Host header, in addition to the loopback defaults
+                      (127.0.0.1:*, localhost:*, [::1]:*).  Required when
+                      running behind a reverse proxy (Tailscale, K8s ingress)
+                      whose Host header differs from localhost.
+                      Supports the FastMCP :* wildcard port syntax.
+                      Example: "myhost.ts.net,myservice.svc.cluster.local:*"
 """
 
 from __future__ import annotations
@@ -106,6 +119,24 @@ def cli() -> None:
 
     if args.transport == "sse":
         import uvicorn
+        from mcp.server.transport_security import TransportSecuritySettings
+
+        # Build allowed_hosts: always include loopback; extend with
+        # LOCUS_ALLOWED_HOSTS (comma-separated) for reverse-proxy deployments
+        # where the Host header will be an external hostname (e.g. Tailscale FQDN).
+        _ALLOWED_HOSTS_ENV = "LOCUS_ALLOWED_HOSTS"
+        _DEFAULT_ALLOWED_HOSTS = ["127.0.0.1:*", "localhost:*", "[::1]:*"]
+        extra_hosts = [
+            h.strip()
+            for h in os.environ.get(_ALLOWED_HOSTS_ENV, "").split(",")
+            if h.strip()
+        ]
+        allowed_hosts = _DEFAULT_ALLOWED_HOSTS + extra_hosts
+        server.settings.transport_security = TransportSecuritySettings(
+            enable_dns_rebinding_protection=True,
+            allowed_hosts=allowed_hosts,
+        )
+        log.info("allowed hosts: %s", allowed_hosts)
 
         app = server.sse_app()
 
