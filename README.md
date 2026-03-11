@@ -1,8 +1,8 @@
 # Locus
 
-<!-- mcp-name: io.github.EDKarlsson/locus -->
+<!-- mcp-name: io.github.Nano-Nimbus/locus -->
 
-[![CI](https://github.com/EDKarlsson/locus/actions/workflows/ci.yml/badge.svg)](https://github.com/EDKarlsson/locus/actions/workflows/ci.yml)
+[![CI](https://github.com/Nano-Nimbus/locus/actions/workflows/ci.yml/badge.svg)](https://github.com/Nano-Nimbus/locus/actions/workflows/ci.yml)
 [![PyPI version](https://img.shields.io/pypi/v/locus-mcp.svg)](https://pypi.org/project/locus-mcp/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
@@ -34,7 +34,7 @@ palace/
 An agent reads `INDEX.md`, navigates to the relevant room, and reads only that room.
 Session logs accumulate until consolidation merges them into canonical files.
 
-See the [wiki](https://github.com/EDKarlsson/locus/wiki) for full documentation.
+See the [wiki](https://github.com/Nano-Nimbus/locus/wiki) for full documentation.
 
 ---
 
@@ -170,7 +170,7 @@ export LOCUS_PALACE=~/.locus
 locus-mcp
 ```
 
-See [MCP Server Configuration](https://github.com/EDKarlsson/locus/wiki/MCP-Server-Configuration)
+See [MCP Server Configuration](https://github.com/Nano-Nimbus/locus/wiki/MCP-Server-Configuration)
 for the full client setup guide and `spec/mcp-server.md` for architecture details.
 
 ---

@@ -1,5 +1,16 @@
 # Changelog
 
+## Repository move — 2026-03-11
+
+Locus has moved to the **Nano-Nimbus** GitHub organization.
+
+- New repo: https://github.com/Nano-Nimbus/locus
+- PyPI package name (`locus-mcp`) and MCP server name (`io.github.Nano-Nimbus/locus`) updated
+- Docker images now published automatically to `ghcr.io/nano-nimbus/locus-mcp` on each tagged release
+- Old GitHub URLs (`github.com/EDKarlsson/locus`) redirect automatically
+
+---
+
 ## v0.9.0 — 2026-03-11
 
 ### Ed25519 Security System — prompt injection defense for AI agents

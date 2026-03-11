@@ -28,4 +28,4 @@ jobs:
         uses: pypa/gh-action-pypi-publish@release/v1
         # Uses OIDC trusted publishing — no token needed.
         # Configure at: https://pypi.org/manage/project/locus-mcp/settings/publishing/
-        # Add publisher: owner=EDKarlsson, repo=locus, workflow=publish.yml, environment=uv
+        # Add publisher: owner=Nano-Nimbus, repo=locus, workflow=publish.yml, environment=uv

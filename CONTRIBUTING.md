@@ -54,7 +54,7 @@ content cryptographically distinguishable from operator-authorized content.
 ## 2. Getting started
 
 ```sh
-git clone https://github.com/EDKarlsson/locus
+git clone https://github.com/Nano-Nimbus/locus
 cd locus
 uv sync --extra dev
 ```

@@ -16,7 +16,7 @@ precise, deep recall across sessions and projects.
 ## Name
 
 **Locus** — singular of loci. The foundational unit of the memory palace.
-GitHub: https://github.com/EDKarlsson/locus
+GitHub: https://github.com/Nano-Nimbus/locus
 
 ## Guidelines
 
