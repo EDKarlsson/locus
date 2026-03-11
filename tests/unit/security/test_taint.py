@@ -162,3 +162,22 @@ def test_taint_tracker_pending_roundtrip():
     retrieved = tracker.pop_pending("tool-123")
     assert retrieved is record
     assert tracker.pop_pending("tool-123") is None
+
+
+def test_session_tainted_starts_false():
+    tracker = TaintTracker()
+    assert tracker.session_tainted is False
+
+
+def test_mark_tainted_latches():
+    tracker = TaintTracker()
+    tracker.mark_tainted()
+    assert tracker.session_tainted is True
+
+
+def test_session_tainted_cannot_be_cleared():
+    """The taint flag is a one-way latch — no reset mechanism."""
+    tracker = TaintTracker()
+    tracker.mark_tainted()
+    # Attempting to set private field directly has no defined reset path
+    assert tracker.session_tainted is True

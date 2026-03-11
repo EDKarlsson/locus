@@ -19,7 +19,7 @@ from .middleware import AuditEntry, SecurityContext, SecurityMiddleware
 from .nonce import generate_session_nonce, inject_security_context
 from .taint import TaintTracker
 
-from locus.mcp.palace import _slug_from_path  # reuse existing slug utility
+from locus.utils import slug_from_path as _slug_from_path
 
 
 def build_security_context(palace_root: Path) -> SecurityContext:

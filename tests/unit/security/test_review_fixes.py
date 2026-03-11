@@ -203,6 +203,47 @@ def test_nonce_not_triggered_without_nonce_in_content(security_ctx):
 
 
 # ============================================================================
+# Fix: auto_sign_writes default is False; taint-gated signing suppression
+# ============================================================================
+
+def test_auto_sign_writes_defaults_false():
+    """auto_sign_writes must be False by default to prevent taint laundering."""
+    from locus.security.config import SigningConfig
+    assert SigningConfig().auto_sign_writes is False
+
+
+def test_auto_sign_suppressed_when_session_tainted(security_ctx, secure_palace, tmp_path):
+    """post_write_hook must not sign if session has processed TAINTED content."""
+    import anyio
+    from locus.security.middleware import SecurityMiddleware
+    from locus.security.taint import TaintLevel, TaintRecord
+
+    # Force auto_sign_writes on so we're testing the taint gate, not the flag
+    security_ctx.config.signing.auto_sign_writes = True
+
+    # Mark the session as tainted
+    security_ctx.taint_tracker.mark_tainted()
+
+    target = secure_palace / "room" / "notes.md"
+
+    async def _run():
+        mw = SecurityMiddleware(security_ctx)
+        return await mw.post_write_hook(
+            {"tool_name": "Write", "tool_input": {"file_path": str(target)}},
+            tool_use_id="w1",
+            context=None,
+        )
+
+    result = anyio.run(_run)
+    # Hook returns empty dict (no-op) — no signing occurred
+    assert result == {}
+
+    # Verify no auto_signed entry was added to audit log
+    signed_events = [e for e in security_ctx.audit_log if e.event == "auto_signed"]
+    assert len(signed_events) == 0
+
+
+# ============================================================================
 # Fix 5 — embed_nonce config flag must be honoured
 # ============================================================================
 

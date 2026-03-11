@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 import tempfile
@@ -119,6 +120,8 @@ def save_keypair(keypair: KeyPair, store_path: Path) -> None:
     else:
         enc = serialization.NoEncryption()
 
+    # PKCS8 is the standard format for PEM-encoded private keys and supports
+    # optional passphrase encryption via BestAvailableEncryption.
     pem_bytes = private_key.private_bytes(
         serialization.Encoding.PEM,
         serialization.PrivateFormat.PKCS8,
@@ -130,7 +133,6 @@ def save_keypair(keypair: KeyPair, store_path: Path) -> None:
     _atomic_write(store_path / "active.pub", keypair.public_key_bytes)
 
     # Metadata
-    import json
     meta = {
         "key_id": keypair.key_id,
         "created_at": keypair.created_at,
@@ -142,8 +144,6 @@ def save_keypair(keypair: KeyPair, store_path: Path) -> None:
 
 def load_keystore(store_path: Path) -> KeyStore:
     """Load the active keypair and any retired public keys from store_path."""
-    import json
-
     active_pem = store_path / "active.pem"
     active_pub = store_path / "active.pub"
     active_meta = store_path / "active.json"
@@ -201,8 +201,6 @@ def load_keystore(store_path: Path) -> KeyStore:
 
 def rotate_keypair(store: KeyStore, store_path: Path) -> KeyPair:
     """Retire the current active key and generate a new one."""
-    import json
-
     retired_dir = store_path / "retired"
     retired_dir.mkdir(parents=True, exist_ok=True)
 

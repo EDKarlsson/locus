@@ -6,6 +6,8 @@ import logging
 import os
 from pathlib import Path
 
+from locus.utils import slug_from_path
+
 log = logging.getLogger("locus.mcp.palace")
 
 # Directories that MCP clients may not write to.
@@ -16,15 +18,8 @@ _WRITE_BLOCKED_DIRS = {"_metrics", "sessions", "archived", ".sig", ".security"}
 _WRITABLE_EXTENSIONS = {".md", ".txt", ".json", ".yaml", ".yml"}
 
 
-def _slug_from_path(p: Path) -> str:
-    """Convert an absolute path to a Claude Code project slug.
-
-    Claude Code derives project slugs by replacing every ``/`` with ``-``.
-    The leading ``/`` becomes a leading ``-``.
-
-    Example: ``/home/user/git/myproject`` → ``-home-user-git-myproject``
-    """
-    return str(p).replace("/", "-")
+# Backward-compatible alias — callers inside this package use the private name.
+_slug_from_path = slug_from_path
 
 
 def find_auto_memory(cwd: Path | None = None) -> Path | None:

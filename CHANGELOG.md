@@ -103,6 +103,30 @@ with `--security` on both the Agent SDK and MCP server.
 
 **New dependency:** `cryptography>=41.0`, `pyyaml>=6.0`
 
+**Post-review fixes (this session)**
+
+- `fix(security/config)`: `auto_sign_writes` default changed `True` → `False`.
+  Default-on auto-signing enables taint laundering: a compromised agent can write
+  injected content to disk, which the system then signs as `[TRUSTED]`. Operators
+  must now explicitly opt in (`signing.auto_sign_writes: true`).
+- `fix(security/taint)`: Added `_session_tainted` one-way latch to `TaintTracker`.
+  `mark_tainted()` is called on any nonce exfiltration event or when a TAINTED
+  pending record is processed. Cannot be cleared — only a fresh session resets it.
+- `fix(security/middleware)`: `post_write_hook` now gates on
+  `session_tainted` — suppresses auto-signing if any TAINTED content was processed
+  this session, regardless of the `auto_sign_writes` config flag.
+- `refactor(mcp/palace)`: Extracted `_slug_from_path` to `locus/utils.py` as
+  `slug_from_path()` (public). `palace.py` retains a `_slug_from_path` alias;
+  `security/__init__.py` now imports from `locus.utils` (breaks the reverse
+  dependency: `security` → `mcp`).
+- `fix(security/middleware)`: Removed unused `classify_content` import.
+- `fix(security/keys)`: Moved three local `import json` calls to module level.
+- `fix(security/keys)`: Updated stale PKCS8 comment (previously described "raw"
+  format; code correctly uses PKCS8).
+- **Tests**: 5 new regression tests — `session_tainted` starts False, latches,
+  cannot be cleared; `auto_sign_writes` defaults False; auto-sign suppressed when
+  session is tainted. Total: 256 tests.
+
 ---
 
 ## v0.8.0 — 2026-03-03

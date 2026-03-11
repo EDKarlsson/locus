@@ -50,7 +50,9 @@ _DEFAULT_ENFORCEMENT: dict[CriticalityLevel, EnforcementRule] = {
 @dataclass
 class SigningConfig:
     enabled: bool = True
-    auto_sign_writes: bool = True
+    auto_sign_writes: bool = False  # Off by default — opt in explicitly. Auto-signing
+    # can launder tainted content into the trusted tier if the agent has been
+    # compromised mid-session. Enable only in tightly controlled pipelines.
     verify_on_read: bool = True
     allow_unsigned_reads: bool = False
 
@@ -117,7 +119,7 @@ def load_security_config(palace_root: Path) -> SecurityConfig | None:
     signing_raw = raw.get("signing", {})
     signing = SigningConfig(
         enabled=bool(signing_raw.get("enabled", True)),
-        auto_sign_writes=bool(signing_raw.get("auto_sign_writes", True)),
+        auto_sign_writes=bool(signing_raw.get("auto_sign_writes", False)),
         verify_on_read=bool(signing_raw.get("verify_on_read", True)),
         allow_unsigned_reads=bool(signing_raw.get("allow_unsigned_reads", False)),
     )

@@ -15,7 +15,7 @@ from typing import Any
 from .config import CriticalityLevel, SecurityConfig
 from .keys import KeyStore
 from .signing import verify_file
-from .taint import TaintLevel, TaintRecord, TaintTracker, classify_content
+from .taint import TaintLevel, TaintRecord, TaintTracker
 
 log = logging.getLogger("locus.security.middleware")
 
@@ -242,6 +242,7 @@ class SecurityMiddleware:
                 tool_name,
                 pending.source,
             )
+            self._ctx.taint_tracker.mark_tainted()
             entry = AuditEntry(
                 event="nonce_exfiltration",
                 tool_name=tool_name,
@@ -260,6 +261,9 @@ class SecurityMiddleware:
                 "taking any further action."
             )
             return {"hookSpecificOutput": {"hookEventName": "PostToolUse", "additionalContext": additional}}
+
+        if pending.taint_level == TaintLevel.TAINTED:
+            self._ctx.taint_tracker.mark_tainted()
 
         if pending.tag:
             tag_prefix = f"{pending.tag}\n"
@@ -296,8 +300,20 @@ class SecurityMiddleware:
     async def post_write_hook(
         self, input_data: dict[str, Any], tool_use_id: str, context: Any
     ) -> dict[str, Any]:
-        """Auto-sign files after Write tool completes."""
+        """Auto-sign files after Write tool completes.
+
+        Signing is suppressed if any TAINTED content has been processed this session
+        to prevent taint laundering — an attacker injecting content that the agent
+        writes to disk and the system then marks [TRUSTED] via auto-signature.
+        """
         if not self._ctx.config.signing.auto_sign_writes:
+            return {}
+
+        if self._ctx.taint_tracker.session_tainted:
+            log.warning(
+                "auto-sign suppressed for tool_use_id=%s: session has processed TAINTED content",
+                tool_use_id,
+            )
             return {}
 
         tool_input: dict = input_data.get("tool_input", {})

@@ -39,6 +39,18 @@ class TaintTracker:
     _pending: dict[str, TaintRecord] = field(default_factory=dict)
     # tool_chain: (tool_name, tool_use_id, max_taint_of_inputs)
     _tool_chain: list[tuple[str, str, TaintLevel]] = field(default_factory=list)
+    # Latching flag — once set, persists for the session lifetime.
+    # Prevents auto-signing after any TAINTED content has been processed.
+    _session_tainted: bool = field(default=False)
+
+    @property
+    def session_tainted(self) -> bool:
+        """True if any TAINTED content has been processed this session."""
+        return self._session_tainted
+
+    def mark_tainted(self) -> None:
+        """Latch the session-level taint flag. Cannot be cleared."""
+        self._session_tainted = True
 
     def register_pending(self, tool_use_id: str, record: TaintRecord) -> None:
         self._pending[tool_use_id] = record
