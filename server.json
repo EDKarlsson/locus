@@ -1,17 +1,17 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
-  "name": "io.github.EDKarlsson/locus",
+  "name": "io.github.Nano-Nimbus/locus",
   "description": "Hierarchical markdown memory palace for AI agents — structured palace navigation via MCP tools.",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "repository": {
-    "url": "https://github.com/EDKarlsson/locus",
+    "url": "https://github.com/Nano-Nimbus/locus",
     "source": "github"
   },
   "packages": [
     {
       "registryType": "pypi",
       "identifier": "locus-mcp",
-      "version": "0.8.0",
+      "version": "0.9.0",
       "transport": {
         "type": "stdio"
       }
