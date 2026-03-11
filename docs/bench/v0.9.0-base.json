@@ -1,0 +1,48 @@
+{
+  "timestamp": "2026-03-11T11:56:16.641986+00:00",
+  "overall": {
+    "passed": 45,
+    "total": 45,
+    "avg_ms": 4.7,
+    "p95_ms": 13.8,
+    "max_ms": 15.9
+  },
+  "categories": {
+    "batch": {
+      "passed": 5,
+      "total": 5,
+      "avg_ms": 3.1
+    },
+    "edge": {
+      "passed": 6,
+      "total": 6,
+      "avg_ms": 5.4
+    },
+    "fidelity": {
+      "passed": 5,
+      "total": 5,
+      "avg_ms": 4.3
+    },
+    "navigation": {
+      "passed": 8,
+      "total": 8,
+      "avg_ms": 3.9
+    },
+    "safety": {
+      "passed": 9,
+      "total": 9,
+      "avg_ms": 1.5
+    },
+    "search": {
+      "passed": 8,
+      "total": 8,
+      "avg_ms": 10.6
+    },
+    "write": {
+      "passed": 4,
+      "total": 4,
+      "avg_ms": 3.7
+    }
+  },
+  "version": "0.9.0-base"
+}

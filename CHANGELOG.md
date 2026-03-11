@@ -1,5 +1,110 @@
 # Changelog
 
+## v0.9.0 — 2026-03-11
+
+### Ed25519 Security System — prompt injection defense for AI agents
+
+Adds a cryptographic trust layer that makes injected content in memory files
+cryptographically distinguishable from operator-authorized content. Enabled
+with `--security` on both the Agent SDK and MCP server.
+
+**Architecture — 5-layer stack:**
+
+```
+[Operator] --signs--> [Memory files + System prompt]
+                              |
+               [SecurityMiddleware]  ← PreToolUse / PostToolUse hooks
+                              |
+            Tags output: [TRUSTED] | [DATA] | [CRITICAL-DATA]
+                              |
+                       [Agent LLM]  ← nonce embedded in signed system prompt
+```
+
+**New package: `locus/security/`**
+
+- `keys.py` — Ed25519 keypair generation, PKCS8/AES-256-CBC storage, rotation.
+  `locus-security init-keys --palace <path>` creates `.security/keys/active.pem`
+  + `active.pub`. `rotate-keys` archives the current public key to `retired/` and
+  generates a fresh active pair. The private key is never retained after rotation.
+- `signing.py` — `sign_file()` / `verify_file()` using Ed25519 sidecar files
+  (`.sig/<filename>.sig`, YAML). Canonical payload: `locus-sig-v1\n<palace_slug>\n<rel_path>\n<signed_at>\n<sha256_hex>`.
+  Content normalised to LF + BOM-stripped before hashing. `sign_system_prompt()`
+  embeds a verifiable `SECURITY CONTEXT` block in the agent system prompt.
+- `nonce.py` — `generate_session_nonce()` (HMAC-SHA256 over 32-byte random seed,
+  32-char URL-safe base64). Injected into system prompt once per session;
+  exfiltration detected in every tool output unconditionally.
+- `taint.py` — `TaintTracker` with sticky propagation: TRUSTED → AUDITED →
+  TAINTED. `classify_content()` checks for injection patterns and nonce.
+  Nonce detection always escalates to TAINTED regardless of signature status.
+- `config.py` — `SecurityConfig` from `locus-security.yaml`. Three criticality
+  levels: `CRITICAL` (block), `AUDITED` (tag + log), `PERMISSIVE` (pass-through).
+  Fail-closed: missing config or keys at startup raises `FileNotFoundError` —
+  never silently degrades to unsecured mode.
+- `middleware.py` — `SecurityMiddleware` registering `PreToolUse` / `PostToolUse`
+  hooks. Pre-hook verifies file signatures and blocks CRITICAL violations.
+  Post-hook injects trust tags and scans unconditionally for nonce exfiltration.
+  `post_write_hook()` auto-signs new files after every Write.
+- `__init__.py` — Public surface: `build_security_context()`, `SecurityContext`,
+  `AuditEntry`.
+
+**CLI integration**
+
+- `locus --security` — Agent SDK run with full middleware stack. Fails at startup
+  if `locus-security.yaml` or keys are absent.
+- `locus-mcp --security` — MCP server with `_SecurityVerifier` verifying every
+  `memory_read`, `memory_list`, and `memory_batch` result; auto-signing every
+  `memory_write`.
+- `locus-security init-keys`, `locus-security rotate-keys`, `locus-security sign-all`
+  — key management CLI.
+
+**Safety guard updates (`mcp/palace.py`)**
+
+- `.sig/` and `.security/` added to `_WRITE_BLOCKED_DIRS` — agents cannot
+  overwrite or forge sidecar files or key material via MCP tools.
+
+**Skills and templates**
+
+- `skills/claude/locus-security/SKILL.md` — agent-facing conventions: trust tag
+  recognition, nonce discipline, injection pattern recognition (fake System:
+  blocks, embedded tool calls), write discipline (never launder `[DATA]` content
+  verbatim), incident reporting to `_security/incidents/`.
+- `templates/locus-security.yaml` — fully annotated configuration template.
+
+**Docs**
+
+- `docs/security.md` — comprehensive reference: threat model, five-layer stack
+  flowchart, secured-read and auto-sign write sequence diagrams, key management,
+  signature protocol, trust tag table, full config reference, and design decision
+  rationale (Ed25519 vs HMAC, sidecar vs inline, per-session nonce, fail-closed,
+  sticky taint).
+- `docs/architecture.md` — added Security Layer section with Mermaid flowchart.
+- `docs/onboarding.md` — added section 8 "Security (optional hardening)" with
+  4-step setup guide.
+- `docs/benchmarks.md` — updated with three-way comparison: v0.8.0, v0.9.0-base,
+  v0.9.0-security. Security overhead is ≤ +1.4 ms per category.
+
+**Performance (see `docs/benchmarks.md` for full analysis)**
+
+- Baseline (no security): 45/45, avg 4.7 ms, p95 13.8 ms
+- With `--security`: 45/45, avg 4.9 ms (+0.2 ms, +4%), p95 10.3 ms
+- Highest overhead: `write` +1.4 ms (+38%) and `batch` +1.1 ms (+35%)
+  — both from Ed25519 sign/verify per file. Safety guards are unaffected
+  (+0.1 ms — rejections still short-circuit before crypto).
+
+**Tests**
+
+- `tests/unit/security/` — 5 test modules covering all layers:
+  `test_config.py`, `test_keys.py`, `test_signing.py`, `test_nonce.py`,
+  `test_taint.py`
+- `tests/unit/security/test_review_fixes.py` — 13 regression tests for all
+  P1/P2 review findings: fail-open removal, coverage gaps in `memory_list` /
+  `memory_batch`, path-traversal anchoring, unconditional nonce detection,
+  `embed_nonce` flag respected
+
+**New dependency:** `cryptography>=41.0`, `pyyaml>=6.0`
+
+---
+
 ## v0.8.0 — 2026-03-03
 
 ### Auto-memory bridge + `memory_batch` tool

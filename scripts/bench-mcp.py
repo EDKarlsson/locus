@@ -300,10 +300,13 @@ def build_report(results: list[Result], version: str | None = None) -> dict:
 
 
 async def run(palace: Path, debug: bool, json_out: Path | None = None,
-              version: str | None = None) -> None:
+              version: str | None = None, security: bool = False) -> None:
+    srv_args = ["run", "-m", "locus.mcp.main", "--palace", str(palace)]
+    if security:
+        srv_args.append("--security")
     params = StdioServerParameters(
         command="uv",
-        args=["run", "-m", "locus.mcp.main", "--palace", str(palace)],
+        args=srv_args,
         env=None,
     )
 
@@ -327,7 +330,10 @@ async def run(palace: Path, debug: bool, json_out: Path | None = None,
 
             if json_out:
                 json_out.parent.mkdir(parents=True, exist_ok=True)
-                json_out.write_text(json.dumps(build_report(results, version), indent=2))
+                report = build_report(results, version)
+                if security:
+                    report["security"] = True
+                json_out.write_text(json.dumps(report, indent=2))
                 print(f"Results written to {json_out}")
 
             # Cleanup scratch
@@ -344,6 +350,8 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--palace", default=str(PALACE))
     parser.add_argument("--debug", action="store_true")
+    parser.add_argument("--security", action="store_true",
+                        help="Start the MCP server with --security (requires locus-security.yaml + keys)")
     parser.add_argument("--version", metavar="X.Y.Z",
                         help="Tag results with this version and save to docs/bench/vX.Y.Z.json")
     parser.add_argument("--json-out", metavar="PATH",
@@ -356,7 +364,7 @@ def main() -> None:
     elif args.version:
         json_out = BENCH_DIR / f"v{args.version}.json"
 
-    asyncio.run(run(Path(args.palace), args.debug, json_out, args.version))
+    asyncio.run(run(Path(args.palace), args.debug, json_out, args.version, args.security))
 
 
 if __name__ == "__main__":
