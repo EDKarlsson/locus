@@ -6,7 +6,7 @@
 #   2. Run: locus-security init-keys --palace <palace-root>
 #   3. Run agents with: locus --palace <path> --security --task "..."
 #
-# See: spec/security.md for the full protocol specification.
+# See: skills/claude/locus-security/SKILL.md for agent-facing security conventions.
 
 version: "1"
 

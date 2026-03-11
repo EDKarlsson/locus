@@ -39,7 +39,7 @@ def build_options(
     """
     system_prompt = SYSTEM_PROMPT
 
-    if security_ctx is not None:
+    if security_ctx is not None and security_ctx.config.embed_nonce:
         from locus.security.nonce import inject_security_context
         from locus.mcp.palace import _slug_from_path
         palace_slug = _slug_from_path(palace_path.resolve())

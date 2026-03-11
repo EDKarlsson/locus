@@ -130,15 +130,19 @@ class SecurityMiddleware:
     ) -> dict[str, Any] | None:
         """Verify a file read. Returns a deny response or None to allow."""
         try:
-            file_path = Path(file_path_str)
             palace_root = self._ctx.palace_root
+            raw = Path(file_path_str)
+            # Anchor relative paths to palace_root before resolving — prevents
+            # "../" sequences from resolving relative to CWD and bypassing checks.
+            resolved = (palace_root / raw).resolve() if not raw.is_absolute() else raw.resolve()
 
             # Only verify files inside the palace
             try:
-                file_path.resolve().relative_to(palace_root)
+                resolved.relative_to(palace_root)
             except ValueError:
                 return None  # outside palace — pass through
 
+            file_path = resolved
             if not file_path.exists():
                 return None
 
@@ -227,12 +231,12 @@ class SecurityMiddleware:
 
         content_str = str(tool_output) if tool_output else ""
 
-        # Check for nonce exfiltration in the output
-        if (
-            self._ctx.session_nonce
-            and self._ctx.session_nonce in content_str
-            and pending.taint_level != TaintLevel.TRUSTED
-        ):
+        # Check for nonce exfiltration in the output.
+        # This check is unconditional — even TRUSTED-tagged files must be scanned.
+        # A TRUSTED file signed *after* session start could have been written with
+        # the nonce embedded by the agent itself (exfiltration-to-disk), which
+        # the signature would then perpetuate. Nonce detection takes highest priority.
+        if self._ctx.session_nonce and self._ctx.session_nonce in content_str:
             log.critical(
                 "NONCE EXFILTRATION: session nonce found in output of %s (source=%s)",
                 tool_name,
@@ -302,12 +306,14 @@ class SecurityMiddleware:
             return {}
 
         try:
-            file_path = Path(file_path_str)
             palace_root = self._ctx.palace_root
+            raw = Path(file_path_str)
+            # Anchor relative paths to palace_root (same fix as _verify_read).
+            file_path = (palace_root / raw).resolve() if not raw.is_absolute() else raw.resolve()
 
             # Only sign files inside the palace
             try:
-                file_path.resolve().relative_to(palace_root)
+                file_path.relative_to(palace_root)
             except ValueError:
                 return {}
 

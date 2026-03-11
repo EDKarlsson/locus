@@ -1,4 +1,8 @@
-"""Locus security — RSA-like prompt injection defense for AI agents.
+"""Locus security — Ed25519-based prompt injection defense for AI agents.
+
+Uses asymmetric cryptography (Ed25519) to sign memory files and system
+prompts, taint-track content through tool calls, and detect nonce
+exfiltration attempts in real time.
 
 Public surface:
     SecurityContext     — per-session state (config, keystore, nonce, taint tracker)

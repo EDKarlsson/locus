@@ -56,7 +56,10 @@ def memory_list(path: str = "") -> str:
         index = root / "INDEX.md"
         if index.is_file():
             log.debug("returning INDEX.md (%d bytes)", index.stat().st_size)
-            return _read_bounded(index, "INDEX.md")
+            content = _read_bounded(index, "INDEX.md")
+            if _security_verifier is not None:
+                content = _security_verifier.tag_content(index, "INDEX.md", content)
+            return content
         log.warning("INDEX.md not found at palace root: %s", root)
         return f"No INDEX.md found at palace root: {root}"
 
@@ -64,7 +67,10 @@ def memory_list(path: str = "") -> str:
 
     if target.is_file():
         log.debug("memory_list returning file contents: %s", target)
-        return _read_bounded(target, path)
+        content = _read_bounded(target, path)
+        if _security_verifier is not None:
+            content = _security_verifier.tag_content(target, path, content)
+        return content
 
     if not target.is_dir():
         log.info("memory_list: path not found: %s", path)
@@ -367,7 +373,10 @@ def memory_batch(paths: list[str]) -> str:
         if target.is_dir():
             log.debug("memory_batch: path is directory: %s", path)
             return f"{header}\n\n_'{display}' is a directory — use memory_list to browse it._"
-        return f"{header}\n\n{_read_bounded(target, path)}"
+        content = _read_bounded(target, path)
+        if _security_verifier is not None:
+            content = _security_verifier.tag_content(target, path, content)
+        return f"{header}\n\n{content}"
 
     return "\n\n---\n\n".join(_process_one(p) for p in paths)
 
@@ -434,12 +443,11 @@ def create_server(palace_root: Path, security: bool = False) -> FastMCP:
     _palace_root = palace_root
 
     if security:
-        try:
-            _security_verifier = _SecurityVerifier(palace_root)
-            log.info("security verifier enabled for %s", palace_root)
-        except FileNotFoundError as exc:
-            log.warning("security disabled: %s", exc)
-            _security_verifier = None
+        # Fail-closed: if config or keys are missing, raise rather than silently
+        # running without security despite --security being explicitly requested.
+        # FileNotFoundError propagates to the CLI and is reported as a startup error.
+        _security_verifier = _SecurityVerifier(palace_root)
+        log.info("security verifier enabled for %s", palace_root)
     else:
         _security_verifier = None
 

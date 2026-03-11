@@ -106,11 +106,13 @@ def _atomic_write(path: Path, data: bytes) -> None:
 
 
 def save_keypair(keypair: KeyPair, store_path: Path) -> None:
-    """Write keypair to store_path/active.raw (private) and active.pub (DER public)."""
-    passphrase = _passphrase()
+    """Write keypair to store_path/active.pem (PKCS8) and active.pub (DER public).
 
-    # Private key: raw bytes, optionally encrypted via simple XOR with passphrase
-    # For real deployments use PKCS8 encryption; raw is simpler for portability here.
+    If LOCUS_SIGNING_PASSPHRASE is set, the private key PEM is encrypted with
+    BestAvailableEncryption (AES-256-CBC). Otherwise it is stored unencrypted.
+    The public key is always written as unencrypted DER.
+    """
+    passphrase = _passphrase()
     private_key = Ed25519PrivateKey.from_private_bytes(keypair.private_key_bytes)
     if passphrase:
         enc = serialization.BestAvailableEncryption(passphrase)
