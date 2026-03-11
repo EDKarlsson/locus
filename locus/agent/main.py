@@ -26,6 +26,7 @@ async def run(
     output_json: bool = False,
     metrics_file: Path | None = None,
     query_type: str | None = None,
+    security: bool = False,
 ) -> RunMetrics:
     """Run a Locus agent against a palace directory.
 
@@ -43,12 +44,42 @@ async def run(
     metrics = RunMetrics(palace_path=str(palace_path), task=task, query_type=query_type)
     collector = MetricsCollector(metrics)
 
-    options = build_options(palace_path, max_turns=max_turns)
-    options.hooks = {
-        "PreToolUse": [
-            HookMatcher(matcher="Read", hooks=[collector.hook]),
-        ],
-    }
+    security_ctx = None
+    if security:
+        from locus.security import build_security_context
+        security_ctx = build_security_context(palace_path)
+        if not output_json:
+            print(
+                f"[security] enabled — nonce={security_ctx.session_nonce[:8]}… "
+                f"key={security_ctx.keystore.active.key_id}",
+                file=sys.stderr,
+            )
+
+    options = build_options(palace_path, max_turns=max_turns, security_ctx=security_ctx)
+
+    if security_ctx is not None:
+        from locus.security.middleware import SecurityMiddleware
+        mw = SecurityMiddleware(security_ctx)
+        options.hooks = {
+            "PreToolUse": [
+                HookMatcher(matcher="Read", hooks=[mw.pre_tool_use_hook]),
+                HookMatcher(matcher="Bash", hooks=[mw.pre_tool_use_hook]),
+                HookMatcher(matcher="WebFetch", hooks=[mw.pre_tool_use_hook]),
+                HookMatcher(matcher="Read", hooks=[collector.hook]),
+            ],
+            "PostToolUse": [
+                HookMatcher(matcher="Read", hooks=[mw.post_tool_use_hook]),
+                HookMatcher(matcher="Bash", hooks=[mw.post_tool_use_hook]),
+                HookMatcher(matcher="WebFetch", hooks=[mw.post_tool_use_hook]),
+                HookMatcher(matcher="Write", hooks=[mw.post_write_hook]),
+            ],
+        }
+    else:
+        options.hooks = {
+            "PreToolUse": [
+                HookMatcher(matcher="Read", hooks=[collector.hook]),
+            ],
+        }
 
     async for message in query(prompt=task, options=options):
         if isinstance(message, AssistantMessage):
@@ -108,6 +139,16 @@ def cli() -> None:
         default=None,
         help="Benchmark query type (A=specific fact, B=cross-domain, C=recency, D=troubleshooting).",
     )
+    parser.add_argument(
+        "--security",
+        action="store_true",
+        default=False,
+        help=(
+            "Enable prompt security system. Requires locus-security.yaml in palace root "
+            "and initialized keys. Verifies file signatures, injects trust tags, "
+            "and detects nonce exfiltration attempts."
+        ),
+    )
 
     args = parser.parse_args()
 
@@ -119,6 +160,7 @@ def cli() -> None:
         args.output_json,
         args.metrics_file,
         args.query_type,
+        args.security,
     )
 
     if args.output_json:

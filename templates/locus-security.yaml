@@ -1,0 +1,71 @@
+# Locus Security Configuration
+# Copy to your palace root as locus-security.yaml and adjust to your threat model.
+#
+# Quick start:
+#   1. Copy this file to <palace-root>/locus-security.yaml
+#   2. Run: locus-security init-keys --palace <palace-root>
+#   3. Run agents with: locus --palace <path> --security --task "..."
+#
+# See: spec/security.md for the full protocol specification.
+
+version: "1"
+
+# Path to key storage, relative to palace root.
+# Keys are created by `locus-security init-keys`.
+key_store: ".security/keys/"
+
+# ---------------------------------------------------------------------------
+# Boundary → criticality mapping
+#
+# Each boundary represents a category of content source.
+# Criticality controls how strictly unverified content is treated.
+#
+# CRITICAL  — block unverified content; deny the tool call entirely
+# AUDITED   — allow but tag [DATA] and log; agent is warned
+# PERMISSIVE — pass through without tagging or logging
+# ---------------------------------------------------------------------------
+boundaries:
+  memory_read:     AUDITED     # Palace files without valid signatures → [DATA]
+  memory_write:    CRITICAL    # Writes always require operator authority to sign
+  tool_output:     AUDITED     # Bash, external tool output → [DATA]
+  user_input:      PERMISSIVE  # User messages — trusted in CLI/interactive context
+  external_data:   CRITICAL    # WebFetch, curl, external API results → blocked
+  mcp_tool_result: AUDITED     # Results from other MCP servers → [DATA]
+
+# ---------------------------------------------------------------------------
+# Enforcement rules per criticality level
+# ---------------------------------------------------------------------------
+enforcement:
+  CRITICAL:
+    block: true           # Deny the tool call
+    log: true             # Log to audit trail
+    tag: "[CRITICAL-DATA]"
+
+  AUDITED:
+    block: false          # Allow the tool call
+    log: true             # Log to audit trail
+    tag: "[DATA]"
+    flag_to_agent: true   # Inject warning into agent context via additionalContext
+
+  PERMISSIVE:
+    block: false
+    log: false
+    tag: null             # No tag injected
+
+# ---------------------------------------------------------------------------
+# Per-session nonce configuration
+# ---------------------------------------------------------------------------
+nonce:
+  algorithm: HMAC-SHA256
+  embed_in_system_prompt: true   # Injects signed SECURITY CONTEXT block
+  include_in_write_audit: true
+
+# ---------------------------------------------------------------------------
+# Memory file signing
+# ---------------------------------------------------------------------------
+signing:
+  enabled: true
+  auto_sign_writes: true       # Sign every memory_write automatically
+  verify_on_read: true         # Verify signature on every memory_read
+  allow_unsigned_reads: false  # false = unsigned files get AUDITED treatment
+                               # true  = unsigned files pass through untagged

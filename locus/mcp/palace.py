@@ -9,7 +9,8 @@ from pathlib import Path
 log = logging.getLogger("locus.mcp.palace")
 
 # Directories that MCP clients may not write to.
-_WRITE_BLOCKED_DIRS = {"_metrics", "sessions", "archived"}
+# ".sig" contains signature sidecars — never written by MCP clients directly.
+_WRITE_BLOCKED_DIRS = {"_metrics", "sessions", "archived", ".sig", ".security"}
 
 # Extensions permitted for memory_write.
 _WRITABLE_EXTENSIONS = {".md", ".txt", ".json", ".yaml", ".yml"}

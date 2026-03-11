@@ -99,6 +99,15 @@ def cli() -> None:
         choices=["DEBUG", "INFO", "WARNING", "ERROR"],
         help="Logging verbosity (default: WARNING; env: LOCUS_MCP_LOG_LEVEL)",
     )
+    parser.add_argument(
+        "--security",
+        action="store_true",
+        default=False,
+        help=(
+            "Enable file signature verification and auto-signing. "
+            "Requires locus-security.yaml in the palace root and initialized keys."
+        ),
+    )
     args = parser.parse_args()
 
     logging.basicConfig(
@@ -115,7 +124,7 @@ def cli() -> None:
         parser.error(str(exc))
 
     log.info("palace root: %s", palace)
-    server = create_server(palace)
+    server = create_server(palace, security=args.security)
 
     if args.transport == "sse":
         import uvicorn
