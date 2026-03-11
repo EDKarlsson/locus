@@ -25,6 +25,9 @@ log = logging.getLogger("locus.mcp.server")
 # The palace root is injected at server startup via `create_server()`.
 _palace_root: Path | None = None
 
+# Optional security verifier — injected via create_server(security=True).
+_security_verifier: "_SecurityVerifier | None" = None
+
 mcp = FastMCP("locus")
 
 
@@ -53,7 +56,10 @@ def memory_list(path: str = "") -> str:
         index = root / "INDEX.md"
         if index.is_file():
             log.debug("returning INDEX.md (%d bytes)", index.stat().st_size)
-            return _read_bounded(index, "INDEX.md")
+            content = _read_bounded(index, "INDEX.md")
+            if _security_verifier is not None:
+                content = _security_verifier.tag_content(index, "INDEX.md", content)
+            return content
         log.warning("INDEX.md not found at palace root: %s", root)
         return f"No INDEX.md found at palace root: {root}"
 
@@ -61,7 +67,10 @@ def memory_list(path: str = "") -> str:
 
     if target.is_file():
         log.debug("memory_list returning file contents: %s", target)
-        return _read_bounded(target, path)
+        content = _read_bounded(target, path)
+        if _security_verifier is not None:
+            content = _security_verifier.tag_content(target, path, content)
+        return content
 
     if not target.is_dir():
         log.info("memory_list: path not found: %s", path)
@@ -86,7 +95,8 @@ def memory_read(path: str) -> str:
     """Read a file from the palace.
 
     ``path`` is relative to the palace root (e.g. ``"global/networking/networking.md"``).
-    Returns the full file contents as a string.
+    Returns the full file contents as a string, prefixed with [TRUSTED] or [DATA]
+    when the security system is active.
     """
     root = _root()
     log.debug("memory_read path=%r", path)
@@ -99,7 +109,12 @@ def memory_read(path: str) -> str:
         log.info("memory_read: path is a directory: %s", path)
         return f"'{path}' is a directory — use memory_list to browse it."
 
-    return _read_bounded(target, path)
+    content = _read_bounded(target, path)
+
+    if _security_verifier is not None:
+        content = _security_verifier.tag_content(target, path, content)
+
+    return content
 
 
 # ---------------------------------------------------------------------------
@@ -153,6 +168,14 @@ def memory_write(path: str, content: str) -> str:
 
     lines = content.count("\n") + (1 if content and not content.endswith("\n") else 0)
     log.info("memory_write: wrote %d lines to %s", lines, path)
+
+    if _security_verifier is not None and _security_verifier.config.signing.auto_sign_writes:
+        try:
+            _security_verifier.sign(target)
+            log.debug("auto-signed %s after write", path)
+        except Exception as exc:
+            log.warning("auto-sign failed for %s: %s", path, exc)
+
     return f"Written {lines} lines to {path}"
 
 
@@ -350,18 +373,83 @@ def memory_batch(paths: list[str]) -> str:
         if target.is_dir():
             log.debug("memory_batch: path is directory: %s", path)
             return f"{header}\n\n_'{display}' is a directory — use memory_list to browse it._"
-        return f"{header}\n\n{_read_bounded(target, path)}"
+        content = _read_bounded(target, path)
+        if _security_verifier is not None:
+            content = _security_verifier.tag_content(target, path, content)
+        return f"{header}\n\n{content}"
 
     return "\n\n---\n\n".join(_process_one(p) for p in paths)
+
+
+# ---------------------------------------------------------------------------
+# Security verifier (MCP path — stateless per-request verification)
+# ---------------------------------------------------------------------------
+
+class _SecurityVerifier:
+    """Thin wrapper around the security layer for use in the MCP server."""
+
+    def __init__(self, palace_root: Path) -> None:
+        from locus.security.config import load_security_config, CriticalityLevel
+        from locus.security.keys import load_keystore
+
+        config = load_security_config(palace_root)
+        if config is None:
+            raise FileNotFoundError(f"No locus-security.yaml found in {palace_root}")
+        self.config = config
+        self._keystore = load_keystore(config.key_store_path)
+        self._palace_root = palace_root
+        self._CRITICAL = CriticalityLevel.CRITICAL
+
+    def tag_content(self, target: Path, rel_path: str, content: str) -> str:
+        """Verify file and prepend trust tag."""
+        if not self.config.signing.verify_on_read:
+            return content
+
+        from locus.security.signing import verify_file
+        result = verify_file(target, self._palace_root, self._keystore)
+
+        if result.trusted:
+            return f"[TRUSTED]\n{content}"
+
+        boundary = self.config.boundaries.memory_read
+        rule = self.config.rule_for(boundary)
+
+        if rule.block and not self.config.signing.allow_unsigned_reads:
+            log.warning("memory_read blocked (security): %s — %s", rel_path, result.reason)
+            return (
+                f"[SECURITY ERROR] File signature verification failed for {rel_path}. "
+                f"Reason: {result.reason}. This file may have been tampered with."
+            )
+
+        tag = rule.tag or "[DATA]"
+        return f"{tag}\n{content}"
+
+    def sign(self, target: Path) -> None:
+        from locus.security.signing import sign_file
+        sign_file(target, self._palace_root, self._keystore.active)
 
 
 # ---------------------------------------------------------------------------
 # Server factory
 # ---------------------------------------------------------------------------
 
-def create_server(palace_root: Path) -> FastMCP:
-    """Initialise the server with a palace root and return it."""
-    global _palace_root
+def create_server(palace_root: Path, security: bool = False) -> FastMCP:
+    """Initialise the server with a palace root and return it.
+
+    Pass ``security=True`` to enable signature verification on reads and
+    auto-signing on writes (requires locus-security.yaml + initialized keys).
+    """
+    global _palace_root, _security_verifier
     _palace_root = palace_root
+
+    if security:
+        # Fail-closed: if config or keys are missing, raise rather than silently
+        # running without security despite --security being explicitly requested.
+        # FileNotFoundError propagates to the CLI and is reported as a startup error.
+        _security_verifier = _SecurityVerifier(palace_root)
+        log.info("security verifier enabled for %s", palace_root)
+    else:
+        _security_verifier = None
+
     log.info("server initialised with palace: %s", palace_root)
     return mcp

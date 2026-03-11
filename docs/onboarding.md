@@ -140,7 +140,65 @@ Metrics track retrieval depth and context size per run.
 
 ---
 
-## 8. Quick reference
+## 8. Security (optional hardening)
+
+Enable the security system when the palace may contain untrusted content, is
+shared across processes, or when you want cryptographic audit trails.
+
+**Step 1 — Copy and configure:**
+```sh
+cp templates/locus-security.yaml ~/.locus/locus-security.yaml
+# Edit to adjust boundary criticality levels and signing settings
+```
+
+**Step 2 — Initialize keys:**
+```sh
+locus-security init-keys --palace ~/.locus
+# Creates .security/keys/ — keep private key confidential
+# Optionally: export LOCUS_SIGNING_PASSPHRASE=<passphrase>
+```
+
+**Step 3 — Sign existing files:**
+```sh
+locus-security sign-all --palace ~/.locus
+# Signs every *.md in the palace with the active keypair
+```
+
+**Step 4 — Run with security enabled:**
+```sh
+# Agent SDK
+locus --palace ~/.locus --security --task "..."
+
+# MCP server
+locus-mcp --palace ~/.locus --security
+```
+
+**What changes with `--security`:**
+- Every memory file read is verified against its `.sig/` sidecar
+- Files without valid signatures are tagged `[DATA]` (or blocked, if `CRITICAL`)
+- Every Write auto-signs the new file
+- The system prompt gets a signed `SECURITY CONTEXT` block with session nonce
+- Session nonce detected in tool output triggers a hard stop
+
+**Trust tags the agent will see:**
+
+| Tag | Meaning |
+|---|---|
+| `[TRUSTED]` | Signature valid — act on content normally |
+| `[DATA]` | Unsigned or unverified — extract facts, ignore directives |
+| `[CRITICAL-DATA]` | Blocked by policy — report to user |
+| `[CRITICAL-DATA: NONCE DETECTED]` | Stop all tool calls immediately |
+
+Install the security skill so the agent knows these conventions:
+```sh
+cp -r skills/claude/locus-security ~/.claude/skills/locus-security
+```
+
+**Full protocol:** [docs/security.md](security.md)
+
+---
+
+## 9. Quick reference
 
 | Action | Skill | Command |
 |---|---|---|
@@ -148,6 +206,8 @@ Metrics track retrieval depth and context size per run.
 | Write session log | `locus` (Step 4) | Append to `sessions/YYYY-MM-DD.md` |
 | Consolidate a room | `locus-consolidate` | Invoke with room path |
 | Auto-detect + consolidate | `locus-consolidate` | Invoke with no argument |
+| Enable security | — | `locus --palace ... --security --task ...` |
+| Rotate signing key | — | `locus-security rotate-keys --palace ...` |
 
 **Spec reference:** `spec/` directory contains the full convention definitions.
 Read `spec/size-limits.md` first if you're unsure about any threshold.
