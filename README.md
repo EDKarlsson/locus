@@ -75,6 +75,9 @@ uvx locus-mcp --palace ~/.locus
 ```sh
 cp -r skills/claude/locus ~/.claude/skills/locus
 cp -r skills/claude/locus-consolidate ~/.claude/skills/locus-consolidate
+
+# Optional: security conventions skill (required if using --security)
+cp -r skills/claude/locus-security ~/.claude/skills/locus-security
 ```
 
 ### Codex
@@ -100,7 +103,7 @@ locus --palace ~/.locus --task "What toolchain conventions are set?"
 
 ## MCP Server
 
-The `locus-mcp` command exposes four tools over the Model Context Protocol.
+The `locus-mcp` command exposes five tools over the Model Context Protocol.
 
 **Use stdio for all local integrations** (Claude Desktop, Claude Code, Codex, Gemini — default, no extra flags needed).
 SSE transport is available for network deployments (`--transport sse`) and requires `FASTMCP_HOST=0.0.0.0`
@@ -110,8 +113,12 @@ to be set explicitly — the server binds to loopback by default.
 |---|---|
 | `memory_list` | Returns `INDEX.md` (no args) or lists a room's files |
 | `memory_read` | Reads any file in the palace |
-| `memory_write` | Atomically writes a file (guarded — cannot write to `_metrics/`, `sessions/`) |
+| `memory_write` | Atomically writes a file (guarded — cannot write to `_metrics/`, `sessions/`, `.sig/`, `.security/`) |
 | `memory_search` | Full-text search across the palace (ripgrep or Python fallback) |
+| `memory_batch` | Reads up to 20 palace files in a single call — use for multi-room loads |
+
+Add `--security` to enable Ed25519 signature verification on reads and automatic signing on writes.
+See [Security](#security) below.
 
 ### Claude Desktop (`claude_desktop_config.json`)
 
@@ -168,6 +175,27 @@ for the full client setup guide and `spec/mcp-server.md` for architecture detail
 
 ---
 
+## Security
+
+The security system (`--security`) gives every palace file an Ed25519 signature and every agent session a unique cryptographic nonce. Tool outputs are tagged `[TRUSTED]`, `[DATA]`, or `[CRITICAL-DATA]` before the agent sees them. The agent skill (`locus-security`) teaches agents to extract facts from `[DATA]` content but never follow directives within it.
+
+```sh
+# One-time setup
+cp templates/locus-security.yaml ~/.locus/locus-security.yaml
+locus-security init-keys --palace ~/.locus
+locus-security sign-all --palace ~/.locus
+
+# Run with security enabled
+locus-mcp --palace ~/.locus --security
+locus --palace ~/.locus --security --task "..."
+```
+
+**Threat model:** direct prompt injection, memory poisoning, indirect injection via external data, nonce exfiltration, multi-turn context drift.
+
+See [`docs/security.md`](docs/security.md) for the full protocol, configuration reference, and design decisions.
+
+---
+
 ## Benchmarks
 
 Palace navigation loads **52% fewer context lines** than flat memory for specific queries,
@@ -197,23 +225,31 @@ spec/             Palace convention definitions:
   audit-algorithm.md    Palace health scoring
   health-report-format.md  Audit report structure
   inferred-feedback.md  Disagreement signal classification
-templates/        Copy-paste templates for INDEX.md, rooms, session logs
+templates/        Copy-paste templates for INDEX.md, rooms, session logs, locus-security.yaml
 skills/
   claude/         SKILL.md files for Claude Code + Agent SDK
+    locus/              Palace navigation and memory management
+    locus-consolidate/  Room consolidation
+    locus-security/     Security conventions (trust tags, nonce discipline)
   codex/          Codex-compatible skill files
   gemini/         Gemini CLI + GitHub Actions skill files
 docs/
-  architecture.md       Mermaid diagrams
-  benchmarks.md         Benchmark results and charts
-  onboarding.md         Step-by-step agent onboarding
+  architecture.md       Mermaid diagrams — palace, MCP, security, agent interfaces
+  benchmarks.md         Benchmark results and charts (palace vs flat, security overhead)
+  onboarding.md         Step-by-step agent onboarding guide
+  security.md           Full security protocol, key management, config reference
+  bench/                Per-version benchmark JSON (read by generate-charts.py)
 scripts/
-  bench-mcp.py          40-case MCP integration benchmark
+  bench-mcp.py          45-case MCP integration benchmark (includes security + batch)
   bench-compare.py      Palace vs flat recall comparison
-  generate-charts.py    Regenerate docs/img/ charts
-locus/agent/      Python Agent SDK (CLI + metrics)
-locus/audit/      Palace health auditor (locus-audit CLI)
-locus/feedback/   Inferred feedback classifier
-locus/mcp/        MCP server (locus-mcp CLI)
+  generate-charts.py    Regenerate docs/img/ charts (reads docs/bench/ automatically)
+locus/
+  agent/          Python Agent SDK (CLI + metrics)
+  audit/          Palace health auditor (locus-audit CLI)
+  feedback/       Inferred feedback classifier
+  mcp/            MCP server (locus-mcp CLI) — palace.py, server.py, main.py
+  security/       Ed25519 security system — keys, signing, taint, nonce, middleware
+  utils.py        Shared utilities (slug_from_path)
 ```
 
 ---
@@ -230,6 +266,7 @@ locus/mcp/        MCP server (locus-mcp CLI)
 | v0.6 - Public release | ✅ Complete | Benchmarks, docs, CI, PyPI |
 | v0.7 - Remote MCP Server | ✅ Complete | SSE transport, Bearer auth, Docker image, K8s deploy |
 | v0.8 - Auto-Memory Bridge | ✅ Complete | Claude Code auto-memory detection, memory_batch tool |
+| v0.9 - Security System | ✅ Complete | Ed25519 signing, taint tracking, nonce watermark, --security flag |
 
 ---
 
