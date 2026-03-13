@@ -1,5 +1,36 @@
 # Changelog
 
+## Documentation audit — 2026-03-13
+
+Full review of all markdown files, spec docs, and the GitHub wiki for consistency
+with the v0.9.0 implementation.
+
+**Repo (`docs/`, `spec/`)**
+
+- `fix(docs/architecture.md)`: MCP server section said "four tools" and the Mermaid
+  diagram was missing `memory_batch` (added in v0.8.0)
+- `fix(docs/onboarding.md)`: palace location priority list had 3 entries and was
+  missing `LOCUS_PALACE` env var (priority 2) and the Claude Code auto-memory bridge
+  (priority 4); corrected to the full 5-step order matching `find_palace()`
+- `fix(spec/mcp-server.md)`: safety model write-blocked dirs section was missing
+  `.sig/` and `.security/` (added in v0.9.0)
+
+**Wiki (pushed directly)**
+
+- `fix(Home.md)`: GitHub repo and CONTRIBUTING.md links still pointed to `EDKarlsson` org
+- `fix(Installation.md)`: `git clone` URL still pointed to `EDKarlsson`; added
+  `locus-security` to CLI commands table; added security skill install instructions
+- `fix(Getting-Started.md)`: "four tools" → five; added `memory_batch` example
+- `fix(MCP-Server-Configuration.md)`: "four tools" → five; added `memory_batch` to
+  tool table; added `.sig/` and `.security/` to write-blocked dirs; added SSE
+  transport section (`--transport sse`, `LOCUS_ALLOWED_HOSTS`)
+- `fix(CLI-Reference.md)`: "four tools" → five; added `memory_batch`; fixed
+  `locus-mcp` resolution order (was truncated to 3 steps); added `--transport`,
+  `--security` flags; added `--security`, `--metrics-file`, `--json` to `locus`;
+  added full `locus-security` CLI section
+
+---
+
 ## Repository move — 2026-03-11
 
 Locus has moved to the **Nano-Nimbus** GitHub organization.
