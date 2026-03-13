@@ -49,10 +49,11 @@ Edit `~/.locus/INDEX.md` — fill in your palace name and room entries.
 Keep it under 50 lines. This is the only file loaded automatically.
 
 **Palace locations (checked in order):**
-1. `--palace` argument (or `LOCUS_PALACE` env var)
-2. `.locus/` in the current working directory
-3. `~/.claude/projects/<slug>/memory/` — Claude Code auto-memory bridge (zero config)
-4. `~/.locus/` global palace (bootstrapped if absent)
+1. `--palace` CLI argument
+2. `LOCUS_PALACE` environment variable
+3. `.locus/` in the current working directory
+4. `~/.claude/projects/<slug>/memory/` — Claude Code auto-memory bridge (zero config)
+5. `~/.locus/` global palace (bootstrapped if absent)
 
 ---
 
