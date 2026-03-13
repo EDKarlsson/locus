@@ -73,9 +73,10 @@ All path arguments are validated before any file I/O:
 1. **Resolve to absolute path** within the palace root.
 2. **Reject path traversal** — any resolved path that does not start with the
    palace root prefix raises an error.
-3. **Reject writes to system directories** — `_metrics/`, `sessions/`, and
-   `archived/` are read-only via MCP. These directories are managed by the
-   pipeline, not by external clients.
+3. **Reject writes to system directories** — `_metrics/`, `sessions/`,
+   `archived/`, `.sig/`, and `.security/` are read-only via MCP. The first three
+   are managed by the pipeline; `.sig/` and `.security/` contain signature sidecars
+   and key material that agents must never forge or overwrite directly.
 4. **Reject writes to binary files** — only `.md`, `.txt`, `.json`, `.yaml`,
    and `.yml` extensions are permitted for writes.
 

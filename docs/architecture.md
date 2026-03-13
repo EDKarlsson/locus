@@ -32,7 +32,7 @@ graph TD
 
 ## MCP Server
 
-The MCP server exposes four tools over stdio. All path operations go through
+The MCP server exposes five tools over stdio. All path operations go through
 `palace.py` safety guards before touching the filesystem.
 
 ```mermaid
@@ -43,6 +43,7 @@ flowchart LR
         T2["memory_read"]
         T3["memory_write"]
         T4["memory_search"]
+        T5["memory_batch"]
     end
 
     subgraph SRV["locus-mcp · stdio transport"]
