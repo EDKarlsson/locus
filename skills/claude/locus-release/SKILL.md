@@ -103,13 +103,69 @@ uv run python scripts/generate-charts.py
 - Configuration examples should use current env var names.
 - No "not implemented in vX.Y" stubs referring to already-shipped features.
 
-### 8. Summary checklist
+### 8. Verify README badges
+
+Check all four badges in `README.md` are correct:
+
+| Badge | Expected |
+|---|---|
+| CI | Points to `.github/workflows/ci.yml` on `Nano-Nimbus/locus` |
+| PyPI version | Slug is `locus-mcp`; auto-updates from PyPI — verify the link resolves to the correct package |
+| Python version | Matches `requires-python` in `pyproject.toml` (currently `3.11+`) |
+| License | Matches the `LICENSE` file (currently MIT) |
+
+The PyPI badge is dynamic — if it shows a stale version after release, PyPI propagation
+takes a few minutes. Wait and refresh before concluding it is broken.
+
+### 9. Verify PyPI publish
+
+After the tag push triggers `publish.yml`:
+
+```bash
+# Check the workflow completed successfully
+gh run list --workflow=publish.yml --limit=3
+
+# Confirm the new version is live on PyPI
+curl -s https://pypi.org/pypi/locus-mcp/json | python3 -c "
+import json, sys
+d = json.load(sys.stdin)
+print('latest:', d['info']['version'])
+print('all versions:', list(d['releases'].keys())[-5:])
+"
+```
+
+The version reported must match `pyproject.toml`. If `publish.yml` failed, check
+for the Docker/PyPI race condition (see MEMORY.md release gotchas) — rerun docker.yml
+after PyPI propagates.
+
+### 10. Verify GHCR image
+
+After `docker.yml` completes:
+
+```bash
+# Confirm the image tag exists on GHCR
+gh api /orgs/Nano-Nimbus/packages/container/locus-mcp/versions \
+  --jq '.[] | {tags: .metadata.container.tags, created: .created_at}' | head -20
+```
+
+Expected: a version entry with tag `X.Y.Z` (and optionally `latest`).
+
+Also verify `Dockerfile` `ARG LOCUS_MCP_VERSION` matches the release version:
+
+```bash
+grep "ARG LOCUS_MCP_VERSION" Dockerfile
+```
+
+### 11. Summary checklist
 
 ```
 [ ] uv run pytest tests/unit/ — N tests, 0 failures
 [ ] CHANGELOG.md has vX.Y.Z entry
 [ ] README.md roadmap includes vX.Y milestone
-[ ] Dockerfile ARG matches version
+[ ] README.md badges: CI workflow URL correct, PyPI slug correct, Python version matches pyproject.toml
+[ ] Dockerfile ARG LOCUS_MCP_VERSION matches release version
+[ ] PyPI: locus-mcp X.Y.Z live at pypi.org/project/locus-mcp/
+[ ] GHCR: ghcr.io/nano-nimbus/locus-mcp:X.Y.Z image published
 [ ] bench-mcp.py: 40/40 pass, p95 < 50ms
 [ ] bench-compare.py: palace ≥ 87% pass
 [ ] docs/img/ charts regenerated
@@ -118,7 +174,8 @@ uv run python scripts/generate-charts.py
 
 ## Notes
 
-- The PyPI badge in README is dynamic and auto-updates — no manual change needed.
 - Registry entries (Glama, PulseMCP) auto-ingest from PyPI weekly — no action needed.
 - Official MCP Registry (`server.json`) should be updated manually if the transport
   or package entry changes significantly.
+- Docker/PyPI race: if `docker.yml` fails immediately after a tag push, wait for PyPI
+  to propagate (~2 min) then rerun the Docker workflow via `gh run rerun <run-id>`.

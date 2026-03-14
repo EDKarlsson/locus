@@ -28,6 +28,7 @@ LOCUS_ALLOWED_HOSTS   Comma-separated extra hostnames allowed in the HTTP
 from __future__ import annotations
 
 import argparse
+import importlib.metadata
 import logging
 import os
 import secrets
@@ -79,6 +80,11 @@ class BearerAuthMiddleware:
 def cli() -> None:
     parser = argparse.ArgumentParser(
         description="Locus MCP server — memory palace via Model Context Protocol"
+    )
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=f"%(prog)s {importlib.metadata.version('locus-mcp')}",
     )
     parser.add_argument(
         "--palace",

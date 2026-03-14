@@ -1,5 +1,33 @@
 # Changelog
 
+## feat: --version flag, skill sync, and locus-palace-init — 2026-03-13
+
+**CLI**
+
+- `feat`: `--version` flag added to `locus-mcp`, `locus`, and `locus-audit`; reports
+  the installed package version via `importlib.metadata` (always in sync with PyPI)
+
+**Developer experience**
+
+- `feat(Makefile)`: new root-level `Makefile` with `install-skills`, `install-skills-dry`,
+  `install`, `test`, and `lint` targets
+- `feat(scripts/install-skills.sh)`: idempotent skill sync from `skills/claude/` to
+  `~/.claude/skills/`; supports `--dry-run` and `CLAUDE_SKILLS_DIR` env override
+
+**New skill: `locus-palace-init`**
+
+- `feat(skills)`: new `locus-palace-init` skill — bootstraps a structured memory palace
+  from existing `~/.claude/projects/*/memory/MEMORY.md` auto-memory files; discovers
+  projects, groups them (`infra` / `tools` / `data` / `docs` / `projects`) by tech-tag
+  heuristics, and writes `INDEX.md` + one room per project with imported content
+- Available for Claude, Codex, and Gemini agents
+
+**Tests**
+
+- 13 new unit tests (`test_cli_version.py`, `test_install_skills.py`); 269 total
+
+---
+
 ## Documentation audit — 2026-03-13
 
 Full review of all markdown files, spec docs, and the GitHub wiki for consistency
