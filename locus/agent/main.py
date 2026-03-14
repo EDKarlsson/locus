@@ -8,6 +8,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import importlib.metadata
 import sys
 from pathlib import Path
 
@@ -103,6 +104,11 @@ def cli() -> None:
     parser = argparse.ArgumentParser(
         prog="locus",
         description="Run a Locus memory agent against a palace directory.",
+    )
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=f"%(prog)s {importlib.metadata.version('locus-mcp')}",
     )
     parser.add_argument(
         "--palace",

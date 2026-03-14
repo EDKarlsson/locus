@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import importlib.metadata
 import json
 from datetime import datetime, timezone
 from pathlib import Path
@@ -107,6 +108,11 @@ def cli() -> None:
     parser = argparse.ArgumentParser(
         prog="locus-audit",
         description="Audit a Locus memory palace and generate a health report.",
+    )
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=f"%(prog)s {importlib.metadata.version('locus-mcp')}",
     )
     parser.add_argument(
         "--palace",
