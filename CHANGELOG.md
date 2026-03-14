@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.10.0 — 2026-03-14
+
+Bumps version to include `--version` flag on all CLIs, skill sync tooling,
+`locus-palace-init` skill, Gemini Code Assist config, and GitHub Copilot
+review instructions merged in PR #47.
+
+See the [v0.10.0 milestone](https://github.com/Nano-Nimbus/locus/pull/47) for full details.
+
+---
+
 ## feat: --version flag, skill sync, and locus-palace-init — 2026-03-13
 
 **CLI**
