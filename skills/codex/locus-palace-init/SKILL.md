@@ -2,7 +2,7 @@
 name: locus-palace-init
 description: >
   Bootstrap a new Locus memory palace from existing session memory files.
-  Discovers Claude project auto-memory directories, aggregates and sorts
+  Discovers agent project memory directories, aggregates and sorts
   their contents, and creates a structured palace with an INDEX.md and one
   room per project. Run once when setting up a palace for the first time, or
   to import a new batch of projects into an existing palace.

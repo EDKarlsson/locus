@@ -23,8 +23,6 @@ if [[ ! -d "$SKILLS_SRC" ]]; then
   exit 1
 fi
 
-mkdir -p "$SKILLS_DST"
-
 installed=0
 for skill_dir in "$SKILLS_SRC"/*/; do
   skill_name="$(basename "$skill_dir")"
@@ -32,6 +30,7 @@ for skill_dir in "$SKILLS_SRC"/*/; do
   if $DRY_RUN; then
     echo "[dry-run] would install: $skill_name → $dst"
   else
+    mkdir -p "$SKILLS_DST"
     cp -r "$skill_dir" "$dst"
     echo "installed: $skill_name"
     installed=$((installed + 1))

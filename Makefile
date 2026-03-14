@@ -1,4 +1,4 @@
-.PHONY: install-skills install test lint
+.PHONY: install-skills install-skills-dry install test lint
 
 # Sync all locus skills from skills/claude/ to ~/.claude/skills/
 install-skills:
